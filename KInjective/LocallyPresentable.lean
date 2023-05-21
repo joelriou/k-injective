@@ -9,6 +9,8 @@ open Limits
 
 variable (C : Type u) [Category.{v} C]
 
+-- TODO: should we set w = v?
+
 class LocallyPresentable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] where
   isRegular : κ.IsRegular
   α : Type w
@@ -16,6 +18,11 @@ class LocallyPresentable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] where
   obj_presentable (a : α) : Presentable (obj a) κ
   exists_presentation : ∀ (Y : C), ∃ (I : Type w) (_ : SmallCategory I) (_ : IsCardinalFiltered I κ)
     (G : I ⥤ C) (_ : ∀ (i : I), G.obj i ∈ Set.range obj), Nonempty (colimit G ≅ Y)
+
+variable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] [LocallyPresentable C κ]
+
+-- show that there is obj' : β → C (with β : Type w) such that the image of obj'
+-- is all presentable objects
   
 end CategoryTheory
 
