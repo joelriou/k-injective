@@ -13,11 +13,12 @@ variable (C : Type u) [Category.{v} C]
 
 class LocallyPresentable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] where
   isRegular : κ.IsRegular
-  α : Type w
-  obj : α → C 
-  obj_presentable (a : α) : Presentable (obj a) κ
+  --obj : α → C 
+  obj : Set C
+  small_obj : Small.{w} obj
+  presentableObj (X : C) (hX : X ∈ obj) : Presentable X κ
   exists_presentation : ∀ (Y : C), ∃ (I : Type w) (_ : SmallCategory I) (_ : IsCardinalFiltered I κ)
-    (G : I ⥤ C) (_ : ∀ (i : I), G.obj i ∈ Set.range obj), Nonempty (colimit G ≅ Y)
+    (G : I ⥤ C) (_ : ∀ (i : I), G.obj i ∈ obj), Nonempty (colimit G ≅ Y)
 
 variable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] [LocallyPresentable C κ]
 
