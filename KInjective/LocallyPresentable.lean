@@ -13,7 +13,6 @@ variable (C : Type u) [Category.{v} C]
 
 class LocallyPresentable (κ : Cardinal.{w}) [HasColimitsOfSize.{w, w} C] where
   isRegular : κ.IsRegular
-  --obj : α → C 
   obj : Set C
   small_obj : Small.{w} obj
   presentableObj (X : C) (hX : X ∈ obj) : Presentable X κ
