@@ -6,8 +6,6 @@ universe u
 
 open CategoryTheory Category Limits
 
-lemma Nat.eq_zero_or_eq_succ (n : ℕ) : n = 0 ∨ ∃ (m : ℕ), n = m.succ := by cases n <;> aesop
-
 section
 
 variable {α : Type*} [LinearOrder α] [IsWellOrder α (· < ·)]
@@ -31,7 +29,9 @@ lemma self_lt_wellOrderSucc {a b : α} (h : a < b) : a < wellOrderSucc a := by
   rw [dif_pos ⟨b, h⟩]
   apply WellFounded.min_mem
 
-lemma le_of_lt_wellOrderSucc {a b : α} (h : a < wellOrderSucc b) : a ≤ b := sorry
+lemma le_of_lt_wellOrderSucc {a b : α} (h : a < wellOrderSucc b) : a ≤ b := by
+  by_contra!
+  simpa using lt_of_lt_of_le h (wellOrderSucc_le this)
 
 class IsWellOrderLimitElement (a : α) : Prop where
   not_bot : ∃ (b : α), b < a
@@ -76,8 +76,9 @@ lemma IsWellOrderLimitElement.neq_succ (a : α) (ha : a < wellOrderSucc a)
 end
 
 @[simp]
-lemma Nat.wellOrderSucc_eq (a : ℕ) : wellOrderSucc a = succ a := by
-  sorry
+lemma Nat.wellOrderSucc_eq (a : ℕ) : wellOrderSucc a = succ a :=
+  le_antisymm (wellOrderSucc_le (Nat.lt_succ_self a))
+    (Nat.succ_le.1 (self_lt_wellOrderSucc (Nat.lt_succ_self a)))
 
 lemma Nat.not_isWellOrderLimitElement (a : ℕ) [IsWellOrderLimitElement a] : False := by
   obtain _|a := a
@@ -88,22 +89,10 @@ section
 
 variable (α : Type*) (β : Type*) [LinearOrder α] [LinearOrder β]
 
-structure PrincipalSegLimit extends PrincipalSeg (· < · : α → _) (· < · : β → _) where
-  isWellOrderLimitElement : IsWellOrderLimitElement top
+namespace PrincipalSeg
 
-namespace PrincipalSegLimit
-
-attribute [instance] isWellOrderLimitElement
-
-variable {β}
-
-@[simps!]
-def ofElement (l : β) [IsWellOrderLimitElement l] : PrincipalSegLimit { a | a < l } β where
-  toPrincipalSeg := PrincipalSeg.ofElement _ l
-  isWellOrderLimitElement := by dsimp; infer_instance
-
-variable {α l}
-variable (h : PrincipalSegLimit α β)
+variable {α β}
+variable (h : PrincipalSeg (· < · : α → _) (· < · : β → _))
 
 lemma lt (a : α) : h.toRelEmbedding a < h.top := by
   rw [h.down]
@@ -120,10 +109,7 @@ def functorToOver : α ⥤ Over h.top where
     · exact (h.map_rel_iff.2 hφ).le
     · exact le_refl _))
 
-lemma false (h : PrincipalSegLimit α ℕ) : False :=
-  Nat.not_isWellOrderLimitElement h.top
-
-end PrincipalSegLimit
+end PrincipalSeg
 
 end
 
@@ -151,11 +137,12 @@ def coconeOfFunctorToOver : Cocone (ι ⋙ Over.forget X ⋙ F) where
 end
 
 class WellOrderContinuous (F : J ⥤ D) : Prop where
-  nonempty_isColimit {α : Type u} [LinearOrder α] (h : PrincipalSegLimit α J) :
+  nonempty_isColimit {α : Type u} [LinearOrder α] (h : PrincipalSeg (· < · : α → α → Prop) (· < · : J → J → Prop))
+      [IsWellOrderLimitElement h.top] :
     Nonempty (IsColimit (F.coconeOfFunctorToOver h.functorToOver))
 
 instance (F : ℕ ⥤ D) : F.WellOrderContinuous where
-  nonempty_isColimit h := False.elim h.false
+  nonempty_isColimit h := False.elim (Nat.not_isWellOrderLimitElement h.top)
 
 end Functor
 

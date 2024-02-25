@@ -11,8 +11,8 @@ namespace Functor
 variable {J : Type u} [LinearOrder J] [IsWellOrder J (· < ·)] (F : Jᵒᵖ ⥤ Type v)
 
 @[simps]
-def _root_.PrincipalSegLimit.ofElementSectionsMk {j : J} [IsWellOrderLimitElement j] (x : F.obj (op j)):
-    (((PrincipalSegLimit.ofElement j).functorToOver ⋙
+def _root_.PrincipalSeg.ofElementSectionsMk {j : J} (x : F.obj (op j)):
+    (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections where
   val a := F.map (homOfLE a.unop.2.le).op x
   property _ := by
@@ -22,10 +22,10 @@ def _root_.PrincipalSegLimit.ofElementSectionsMk {j : J} [IsWellOrderLimitElemen
 structure WellOrderInductionData where
   succ (j : J) : F.obj (op j) → F.obj (op (wellOrderSucc j))
   map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (self_le_wellOrderSucc j)).op (succ j x) = x
-  desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSegLimit.ofElement j).functorToOver ⋙
+  desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) : F.obj (op j)
   fac (j : J) [IsWellOrderLimitElement j]
-    (x : (((PrincipalSegLimit.ofElement j).functorToOver ⋙
+    (x : (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) (a : { x | x < j }) :
         x.val (op a) = F.map (homOfLE (le_of_lt a.2)).op (desc j x)
 
@@ -41,7 +41,7 @@ structure Extension (val₀ : F.obj (op ⊥)) (j : J) where
     F.map (homOfLE (wellOrderSucc_le hi)).op val =
       d.succ i (F.map (homOfLE hi.le).op val)
   map_desc (i : J) [IsWellOrderLimitElement i] (hi : i ≤ j) :
-    F.map (homOfLE hi).op val = d.desc i (PrincipalSegLimit.ofElementSectionsMk F (F.map (homOfLE hi).op val))
+    F.map (homOfLE hi).op val = d.desc i (PrincipalSeg.ofElementSectionsMk F (F.map (homOfLE hi).op val))
 
 namespace Extension
 
@@ -131,8 +131,8 @@ def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) 
       erw [Functor.map_id]
       rfl
     · rw [← homOfLE_comp (le_of_lt_wellOrderSucc hi) hj.le, op_comp,
-        FunctorToTypes.map_comp_apply, d.map_succ _ hj, ← e.map_succ i hi']
-      rw [← homOfLE_comp (wellOrderSucc_le hi') hj.le, op_comp,
+        FunctorToTypes.map_comp_apply, d.map_succ _ hj, ← e.map_succ i hi',
+        ← homOfLE_comp (wellOrderSucc_le hi') hj.le, op_comp,
         FunctorToTypes.map_comp_apply, d.map_succ _ hj]
   map_desc i _ hi := by
     obtain rfl|hi' := eq_or_lt_of_le hi
