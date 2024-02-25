@@ -125,12 +125,19 @@ def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) 
     have h := congr_arg (F.map (homOfLE (bot_le : ⊥ ≤ j)).op) (d.map_succ j hj e.val)
     rw [e.map_zero, ← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp] at h
     exact h
-  map_succ := sorry
+  map_succ i hi := by
+    obtain rfl|hi' := eq_or_lt_of_le (le_of_lt_wellOrderSucc hi)
+    · rw [d.map_succ _ hi]
+      erw [Functor.map_id]
+      rfl
+    · rw [← homOfLE_comp (le_of_lt_wellOrderSucc hi) hj.le, op_comp,
+        FunctorToTypes.map_comp_apply, d.map_succ _ hj, ← e.map_succ i hi']
+      rw [← homOfLE_comp (wellOrderSucc_le hi') hj.le, op_comp,
+        FunctorToTypes.map_comp_apply, d.map_succ _ hj]
   map_desc i _ hi := by
     obtain rfl|hi' := eq_or_lt_of_le hi
     · simpa using IsWellOrderLimitElement.neq_succ _ hj
-    · have hij : i ≤ j := (le_of_lt_wellOrderSucc hi')
-      have h := congr_arg (F.map (homOfLE hij).op) (d.map_succ j hj e.val)
+    · have h := congr_arg (F.map (homOfLE (le_of_lt_wellOrderSucc hi')).op) (d.map_succ j hj e.val)
       rw [e.map_desc i (le_of_lt_wellOrderSucc hi'), ← FunctorToTypes.map_comp_apply,
         ← op_comp, homOfLE_comp] at h
       rw [h]
