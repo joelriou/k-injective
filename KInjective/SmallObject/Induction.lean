@@ -21,7 +21,7 @@ def _root_.PrincipalSegLimit.ofElementSectionsMk {j : J} [IsWellOrderLimitElemen
 
 structure WellOrderInductionData where
   succ (j : J) : F.obj (op j) → F.obj (op (wellOrderSucc j))
-  map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (le_wellOrderSucc j)).op (succ j x) = x
+  map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (self_le_wellOrderSucc j)).op (succ j x) = x
   desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSegLimit.ofElement j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) : F.obj (op j)
   fac (j : J) [IsWellOrderLimitElement j]
@@ -119,7 +119,27 @@ def extensionZero : d.Extension val₀ ⊥ where
 variable {val₀}
 
 def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) :
-    d.Extension val₀ (wellOrderSucc j) := sorry
+    d.Extension val₀ (wellOrderSucc j) where
+  val := d.succ j e.val
+  map_zero := by
+    have h := congr_arg (F.map (homOfLE (bot_le : ⊥ ≤ j)).op) (d.map_succ j hj e.val)
+    rw [e.map_zero, ← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp] at h
+    exact h
+  map_succ := sorry
+  map_desc i _ hi := by
+    obtain rfl|hi' := eq_or_lt_of_le hi
+    · simpa using IsWellOrderLimitElement.neq_succ _ hj
+    · have hij : i ≤ j := (le_of_lt_wellOrderSucc hi')
+      have h := congr_arg (F.map (homOfLE hij).op) (d.map_succ j hj e.val)
+      rw [e.map_desc i (le_of_lt_wellOrderSucc hi'), ← FunctorToTypes.map_comp_apply,
+        ← op_comp, homOfLE_comp] at h
+      rw [h]
+      congr 1
+      ext ⟨a, ha⟩
+      dsimp
+      rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp, ← d.fac i _ ⟨a, ha⟩]
+      dsimp
+      rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
 
 variable (val₀) in
 

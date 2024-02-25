@@ -15,7 +15,7 @@ variable {α : Type*} [LinearOrder α] [IsWellOrder α (· < ·)]
 noncomputable def wellOrderSucc (a : α) : α :=
   (@IsWellFounded.wf α (· < ·)).succ a
 
-lemma le_wellOrderSucc (a : α) : a ≤ wellOrderSucc a := by
+lemma self_le_wellOrderSucc (a : α) : a ≤ wellOrderSucc a := by
   by_cases h : ∃ b, a < b
   · exact (IsWellFounded.wf.lt_succ h).le
   · dsimp [wellOrderSucc, WellFounded.succ]
@@ -26,10 +26,12 @@ lemma wellOrderSucc_le {a b : α} (ha : a < b) : wellOrderSucc a ≤ b := by
   rw [dif_pos ⟨_, ha⟩]
   exact WellFounded.min_le _ ha
 
-lemma lt_wellOrderSucc {a b : α} (h : a < b) : a < wellOrderSucc a := by
+lemma self_lt_wellOrderSucc {a b : α} (h : a < b) : a < wellOrderSucc a := by
   dsimp [wellOrderSucc, WellFounded.succ]
   rw [dif_pos ⟨b, h⟩]
   apply WellFounded.min_mem
+
+lemma le_of_lt_wellOrderSucc {a b : α} (h : a < wellOrderSucc b) : a ≤ b := sorry
 
 class IsWellOrderLimitElement (a : α) : Prop where
   not_bot : ∃ (b : α), b < a
@@ -65,7 +67,11 @@ lemma eq_bot_or_eq_succ_or_isWellOrderLimitElement [OrderBot α] (a : α) :
         obtain h₃|h₃ := eq_or_lt_of_le (wellOrderSucc_le hb)
         · exfalso
           exact h₂ ⟨b, h₃.symm, hb⟩
-        · exact ⟨wellOrderSucc b, lt_wellOrderSucc hb, h₃⟩
+        · exact ⟨wellOrderSucc b, self_lt_wellOrderSucc hb, h₃⟩
+
+lemma IsWellOrderLimitElement.neq_succ (a : α) (ha : a < wellOrderSucc a)
+    [IsWellOrderLimitElement (wellOrderSucc a)] : False := by
+  simpa using IsWellOrderLimitElement.wellOrderSucc_lt ha
 
 end
 
@@ -158,7 +164,7 @@ namespace MorphismProperty
 variable {C : Type*} [Category C] (W : MorphismProperty C)
 
 class IsStableUnderTransfiniteCompositionOfShape (β : Type*) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β] : Prop where
-  condition (F : β ⥤ C) [F.WellOrderContinuous] (hF : ∀ (a : β), W (F.map (homOfLE (le_wellOrderSucc a))))
+  condition (F : β ⥤ C) [F.WellOrderContinuous] (hF : ∀ (a : β), W (F.map (homOfLE (self_le_wellOrderSucc a))))
     (c : Cocone F) (hc : IsColimit c) : W (c.ι.app ⊥)
 
 abbrev IsStableUnderInfiniteComposition := W.IsStableUnderTransfiniteCompositionOfShape ℕ
