@@ -10,7 +10,7 @@ lemma Nat.eq_zero_or_eq_succ (n : ℕ) : n = 0 ∨ ∃ (m : ℕ), n = m.succ := 
 
 section
 
-variable [LinearOrder α] [IsWellOrder α (· < ·)]
+variable {α : Type*} [LinearOrder α] [IsWellOrder α (· < ·)]
 
 noncomputable def wellOrderSucc (a : α) : α :=
   (@IsWellFounded.wf α (· < ·)).succ a
@@ -20,30 +20,70 @@ lemma le_wellOrderSucc (a : α) : a ≤ wellOrderSucc a := by
   · exact (IsWellFounded.wf.lt_succ h).le
   · dsimp [wellOrderSucc, WellFounded.succ]
     rw [dif_neg h]
+
+lemma wellOrderSucc_le {a b : α} (ha : a < b) : wellOrderSucc a ≤ b := by
+  dsimp [wellOrderSucc, WellFounded.succ]
+  rw [dif_pos ⟨_, ha⟩]
+  exact WellFounded.min_le _ ha
+
+class IsWellOrderLimitElement (a : α) : Prop where
+  not_bot : ∃ (b : α), b < a
+  not_succ (b : α) (hb : b < a) : ∃ (c : α), b < c ∧ c < a
+
+variable (a : α) [ha : IsWellOrderLimitElement a]
+
+lemma IsWellOrderLimitElement.neq_bot [OrderBot α] : a ≠ ⊥ := by
+  rintro rfl
+  obtain ⟨b, hb⟩ := ha.not_bot
+  simp at hb
+
+variable {a b}
+
+lemma IsWellOrderLimitElement.wellOrderSucc_lt {b : α} (hb : b < a) :
+    wellOrderSucc b < a := by
+  obtain ⟨c, hc₁, hc₂⟩ := ha.not_succ b hb
+  exact lt_of_le_of_lt (wellOrderSucc_le hc₁) hc₂
+
 end
+
+@[simp]
+lemma Nat.wellOrderSucc_eq (a : ℕ) : wellOrderSucc a = succ a := by
+  sorry
+
+lemma Nat.not_isWellOrderLimitElement (a : ℕ) [IsWellOrderLimitElement a] : False := by
+  obtain _|a := a
+  · simpa using IsWellOrderLimitElement.neq_bot (0 : ℕ)
+  · simpa using IsWellOrderLimitElement.wellOrderSucc_lt (Nat.lt_succ_self a)
 
 section
 
-variable (α β : Type*) [LinearOrder α] [LinearOrder β]
+variable (α : Type*) (β : Type*) [LinearOrder α] [LinearOrder β]
 
-structure InitialSegLimit extends InitialSeg (· < · : α → _) (· < · : β → _) where
-  l : β
-  hl : Set.range toRelEmbedding = { b | b < l }
-  hl' (b : β) (hb : ∀ a, toRelEmbedding a ≤ b) : l ≤ b
-  nonempty : Nonempty α
+structure PrincipalSegLimit extends PrincipalSeg (· < · : α → _) (· < · : β → _) where
+  isWellOrderLimitElement : IsWellOrderLimitElement top
 
-namespace InitialSegLimit
+namespace PrincipalSegLimit
 
-variable {α β}
-variable (h : InitialSegLimit α β)
+attribute [instance] isWellOrderLimitElement
 
-lemma lt (a : α) : h.toRelEmbedding a < h.l := by
-  change h.toRelEmbedding a ∈ { b | b < h.l }
-  simp [← h.hl]
+variable {β}
 
-lemma le (a : α) : h.toRelEmbedding a ≤ h.l := le_of_lt (h.lt a)
+@[simps!]
+def ofElement (l : β) [IsWellOrderLimitElement l] : PrincipalSegLimit { a | a < l } β where
+  toPrincipalSeg := PrincipalSeg.ofElement _ l
+  isWellOrderLimitElement := by dsimp; infer_instance
 
-def functorToOver : α ⥤ Over h.l where
+variable {α l}
+variable (h : PrincipalSegLimit α β)
+
+lemma lt (a : α) : h.toRelEmbedding a < h.top := by
+  rw [h.down]
+  exact ⟨a, rfl⟩
+
+lemma le (a : α) : h.toRelEmbedding a ≤ h.top := le_of_lt (h.lt a)
+
+@[simps]
+def functorToOver : α ⥤ Over h.top where
   obj a := Over.mk (homOfLE (h.le a))
   map {a a'} φ := Over.homMk (homOfLE (by
     dsimp
@@ -51,14 +91,10 @@ def functorToOver : α ⥤ Over h.l where
     · exact (h.map_rel_iff.2 hφ).le
     · exact le_refl _))
 
-lemma false (h : InitialSegLimit α ℕ) : False := by
-  obtain hl|⟨m, hl⟩ := Nat.eq_zero_or_eq_succ h.l
-  · have := h.lt h.nonempty.some
-    omega
-  · have := h.hl' m (fun a => by have := h.lt a; omega)
-    omega
+lemma false (h : PrincipalSegLimit α ℕ) : False :=
+  Nat.not_isWellOrderLimitElement h.top
 
-end InitialSegLimit
+end PrincipalSegLimit
 
 end
 
@@ -86,11 +122,11 @@ def coconeOfFunctorToOver : Cocone (ι ⋙ Over.forget X ⋙ F) where
 end
 
 class WellOrderContinuous (F : J ⥤ D) : Prop where
-  nonempty_isColimit (α : Type u) [LinearOrder α] (h : InitialSegLimit α J) :
+  nonempty_isColimit {α : Type u} [LinearOrder α] (h : PrincipalSegLimit α J) :
     Nonempty (IsColimit (F.coconeOfFunctorToOver h.functorToOver))
 
 instance (F : ℕ ⥤ D) : F.WellOrderContinuous where
-  nonempty_isColimit _ _ h := False.elim h.false
+  nonempty_isColimit h := False.elim h.false
 
 end Functor
 
