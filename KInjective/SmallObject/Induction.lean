@@ -40,7 +40,7 @@ structure Extension (val₀ : F.obj (op ⊥)) (j : J) where
   map_succ (i : J) (hi : i < j) :
     F.map (homOfLE (wellOrderSucc_le hi)).op val =
       d.succ i (F.map (homOfLE hi.le).op val)
-  map_desc (i : J) [IsWellOrderLimitElement i] (hi : i ≤ j) :
+  map_limit (i : J) [IsWellOrderLimitElement i] (hi : i ≤ j) :
     F.map (homOfLE hi).op val = d.desc i (PrincipalSeg.ofElementSectionsMk F (F.map (homOfLE hi).op val))
 
 namespace Extension
@@ -55,9 +55,9 @@ def ofLE {j : J} (e : d.Extension val₀ j) {i : J} (h : i ≤ j) :
   map_succ k hk := by
     rw [← FunctorToTypes.map_comp_apply, ← FunctorToTypes.map_comp_apply, ← op_comp, ← op_comp,
       homOfLE_comp, homOfLE_comp, e.map_succ k (lt_of_lt_of_le hk h)]
-  map_desc k _ hk := by
+  map_limit k _ hk := by
     rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
-    exact e.map_desc k (hk.trans h)
+    exact e.map_limit k (hk.trans h)
 
 lemma ext' {e e' : d.Extension val₀ j} (h : e.val = e'.val) : e = e' := by
   cases e
@@ -85,8 +85,8 @@ instance (j : J) : Subsingleton (d.Extension val₀ j) := by
     have := hj i hi
     exact congr_arg Extension.val (Subsingleton.elim (e₁.ofLE hi.le) (e₂.ofLE hi.le))
   · refine Subsingleton.intro (fun e₁ e₂ => ext' ?_)
-    have h₁ := e₁.map_desc j (by rfl)
-    have h₂ := e₂.map_desc j (by rfl)
+    have h₁ := e₁.map_limit j (by rfl)
+    have h₂ := e₂.map_limit j (by rfl)
     erw [Functor.map_id] at h₁ h₂
     dsimp at h₁ h₂
     rw [h₁, h₂]
@@ -112,7 +112,7 @@ def extensionZero : d.Extension val₀ ⊥ where
     erw [Functor.map_id]
     rfl
   map_succ i hi := by simp at hi
-  map_desc i _ hi := by
+  map_limit i _ hi := by
     exfalso
     exact IsWellOrderLimitElement.neq_bot i (by simpa using hi)
 
@@ -134,11 +134,11 @@ def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) 
         FunctorToTypes.map_comp_apply, d.map_succ _ hj, ← e.map_succ i hi',
         ← homOfLE_comp (wellOrderSucc_le hi') hj.le, op_comp,
         FunctorToTypes.map_comp_apply, d.map_succ _ hj]
-  map_desc i _ hi := by
+  map_limit i _ hi := by
     obtain rfl|hi' := eq_or_lt_of_le hi
     · simpa using IsWellOrderLimitElement.neq_succ _ hj
     · have h := congr_arg (F.map (homOfLE (le_of_lt_wellOrderSucc hi')).op) (d.map_succ j hj e.val)
-      rw [e.map_desc i (le_of_lt_wellOrderSucc hi'), ← FunctorToTypes.map_comp_apply,
+      rw [e.map_limit i (le_of_lt_wellOrderSucc hi'), ← FunctorToTypes.map_comp_apply,
         ← op_comp, homOfLE_comp] at h
       rw [h]
       congr 1
@@ -149,10 +149,20 @@ def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) 
       rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
 
 variable (val₀) in
-
 def extensionLimit (j : J) [IsWellOrderLimitElement j]
     (e : ∀ (i : J) (hi : i < j), d.Extension val₀ i) :
-    d.Extension val₀ j := sorry
+    d.Extension val₀ j where
+  val := d.desc j
+    { val := fun ⟨i, (hi : i < j)⟩ => (e i hi).val
+      property := fun _ => Extension.compatibility _ _ _ }
+  map_zero := by
+    have h := (e ⊥ (IsWellOrderLimitElement.bot_lt j)).map_zero
+    erw [Functor.map_id] at h
+    dsimp at h ⊢
+    rw [← d.fac j _ ⟨⊥, IsWellOrderLimitElement.bot_lt j⟩]
+    exact h
+  map_succ := sorry
+  map_limit := sorry
 
 instance (j : J) : Nonempty (d.Extension val₀ j) := by
   apply @WellFoundedLT.induction J _ _ (fun j => Nonempty (d.Extension val₀ j))
