@@ -26,6 +26,11 @@ lemma wellOrderSucc_le {a b : α} (ha : a < b) : wellOrderSucc a ≤ b := by
   rw [dif_pos ⟨_, ha⟩]
   exact WellFounded.min_le _ ha
 
+lemma lt_wellOrderSucc {a b : α} (h : a < b) : a < wellOrderSucc a := by
+  dsimp [wellOrderSucc, WellFounded.succ]
+  rw [dif_pos ⟨b, h⟩]
+  apply WellFounded.min_mem
+
 class IsWellOrderLimitElement (a : α) : Prop where
   not_bot : ∃ (b : α), b < a
   not_succ (b : α) (hb : b < a) : ∃ (c : α), b < c ∧ c < a
@@ -43,6 +48,24 @@ lemma IsWellOrderLimitElement.wellOrderSucc_lt {b : α} (hb : b < a) :
     wellOrderSucc b < a := by
   obtain ⟨c, hc₁, hc₂⟩ := ha.not_succ b hb
   exact lt_of_le_of_lt (wellOrderSucc_le hc₁) hc₂
+
+lemma eq_bot_or_eq_succ_or_isWellOrderLimitElement [OrderBot α] (a : α) :
+    a = ⊥ ∨ (∃ b, a = wellOrderSucc b ∧ b < a) ∨ IsWellOrderLimitElement a := by
+  by_cases h₁ : a = ⊥
+  · exact Or.inl (by rw [h₁])
+  · by_cases h₂ : ∃ b, a = wellOrderSucc b ∧ b < a
+    · exact Or.inr (Or.inl h₂)
+    · refine' Or.inr (Or.inr (IsWellOrderLimitElement.mk _ _))
+      · refine' ⟨⊥, _⟩
+        obtain h₃|h₃ := eq_or_lt_of_le (bot_le : ⊥ ≤ a)
+        · exfalso
+          exact h₁ h₃.symm
+        · exact h₃
+      · intro b hb
+        obtain h₃|h₃ := eq_or_lt_of_le (wellOrderSucc_le hb)
+        · exfalso
+          exact h₂ ⟨b, h₃.symm, hb⟩
+        · exact ⟨wellOrderSucc b, lt_wellOrderSucc hb, h₃⟩
 
 end
 

@@ -10,6 +10,7 @@ namespace Functor
 
 variable {J : Type u} [LinearOrder J] [IsWellOrder J (· < ·)] (F : Jᵒᵖ ⥤ Type v)
 
+@[simps]
 def _root_.PrincipalSegLimit.ofElementSectionsMk {j : J} [IsWellOrderLimitElement j] (x : F.obj (op j)):
     (((PrincipalSegLimit.ofElement j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections where
@@ -20,7 +21,7 @@ def _root_.PrincipalSegLimit.ofElementSectionsMk {j : J} [IsWellOrderLimitElemen
 
 structure WellOrderInductionData where
   succ (j : J) : F.obj (op j) → F.obj (op (wellOrderSucc j))
-  map_succ (j : J) (x : F.obj (op j)) : F.map (homOfLE (le_wellOrderSucc j)).op (succ j x) = x
+  map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (le_wellOrderSucc j)).op (succ j x) = x
   desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSegLimit.ofElement j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) : F.obj (op j)
   fac (j : J) [IsWellOrderLimitElement j]
@@ -36,9 +37,9 @@ variable (d : F.WellOrderInductionData)
 structure Extension (val₀ : F.obj (op ⊥)) (j : J) where
   val : F.obj (op j)
   map_zero : F.map (homOfLE bot_le).op val = val₀
-  map_succ (i : J) (hi : wellOrderSucc i ≤ j) :
-    F.map (homOfLE hi).op val =
-      d.succ i (F.map (homOfLE ((le_wellOrderSucc i).trans hi)).op val)
+  map_succ (i : J) (hi : i < j) :
+    F.map (homOfLE (wellOrderSucc_le hi)).op val =
+      d.succ i (F.map (homOfLE hi.le).op val)
   map_desc (i : J) [IsWellOrderLimitElement i] (hi : i ≤ j) :
     F.map (homOfLE hi).op val = d.desc i (PrincipalSegLimit.ofElementSectionsMk F (F.map (homOfLE hi).op val))
 
@@ -53,12 +54,47 @@ def ofLE {j : J} (e : d.Extension val₀ j) {i : J} (h : i ≤ j) :
   map_zero := by rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp, e.map_zero]
   map_succ k hk := by
     rw [← FunctorToTypes.map_comp_apply, ← FunctorToTypes.map_comp_apply, ← op_comp, ← op_comp,
-      homOfLE_comp, homOfLE_comp, e.map_succ k (hk.trans h)]
+      homOfLE_comp, homOfLE_comp, e.map_succ k (lt_of_lt_of_le hk h)]
   map_desc k _ hk := by
     rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
     exact e.map_desc k (hk.trans h)
 
-instance (j : J) : Subsingleton (d.Extension val₀ j) := sorry
+lemma ext' {e e' : d.Extension val₀ j} (h : e.val = e'.val) : e = e' := by
+  cases e
+  cases e'
+  subst h
+  rfl
+
+instance (j : J) : Subsingleton (d.Extension val₀ j) := by
+  apply @WellFoundedLT.induction J _ _ (fun j => Subsingleton (d.Extension val₀ j))
+  intro j hj
+  obtain rfl|⟨i, rfl, hi⟩|_ := eq_bot_or_eq_succ_or_isWellOrderLimitElement j
+  · refine Subsingleton.intro (fun e₁ e₂ => ext' ?_)
+    have h₁ := e₁.map_zero
+    have h₂ := e₂.map_zero
+    erw [Functor.map_id] at h₁ h₂
+    dsimp at h₁ h₂
+    rw [h₁, h₂]
+  · refine Subsingleton.intro (fun e₁ e₂ => ext' ?_)
+    have h₁ := e₁.map_succ i hi
+    have h₂ := e₂.map_succ i hi
+    erw [Functor.map_id] at h₁ h₂
+    dsimp at h₁ h₂
+    rw [h₁, h₂]
+    congr 1
+    have := hj i hi
+    exact congr_arg Extension.val (Subsingleton.elim (e₁.ofLE hi.le) (e₂.ofLE hi.le))
+  · refine Subsingleton.intro (fun e₁ e₂ => ext' ?_)
+    have h₁ := e₁.map_desc j (by rfl)
+    have h₂ := e₂.map_desc j (by rfl)
+    erw [Functor.map_id] at h₁ h₂
+    dsimp at h₁ h₂
+    rw [h₁, h₂]
+    congr 1
+    ext ⟨a, ha : a < j⟩
+    dsimp
+    have := hj a ha
+    exact congr_arg Extension.val (Subsingleton.elim (e₁.ofLE ha.le) (e₂.ofLE ha.le))
 
 lemma compatibility {j : J} (e : d.Extension val₀ j) {i : J}
     (e' : d.Extension val₀ i) (h : i ≤ j) :
@@ -66,13 +102,45 @@ lemma compatibility {j : J} (e : d.Extension val₀ j) {i : J}
   obtain rfl : e' = e.ofLE h := Subsingleton.elim _ _
   rfl
 
-instance (j : J) : Unique (d.Extension val₀ j) := sorry
-
 end Extension
+
+variable (val₀)
+
+def extensionZero : d.Extension val₀ ⊥ where
+  val := val₀
+  map_zero := by
+    erw [Functor.map_id]
+    rfl
+  map_succ i hi := by simp at hi
+  map_desc i _ hi := by
+    exfalso
+    exact IsWellOrderLimitElement.neq_bot i (by simpa using hi)
+
+variable {val₀}
+
+def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) :
+    d.Extension val₀ (wellOrderSucc j) := sorry
+
+variable (val₀) in
+
+def extensionLimit (j : J) [IsWellOrderLimitElement j]
+    (e : ∀ (i : J) (hi : i < j), d.Extension val₀ i) :
+    d.Extension val₀ j := sorry
+
+instance (j : J) : Nonempty (d.Extension val₀ j) := by
+  apply @WellFoundedLT.induction J _ _ (fun j => Nonempty (d.Extension val₀ j))
+  intro j hj
+  obtain rfl|⟨i, rfl, hi⟩|_ := eq_bot_or_eq_succ_or_isWellOrderLimitElement j
+  · exact ⟨d.extensionZero val₀⟩
+  · exact ⟨d.extensionSucc (hj i hi).some hi⟩
+  · exact ⟨d.extensionLimit val₀ j (fun i hi => (hj i hi).some)⟩
+
+noncomputable instance (j : J) : Unique (d.Extension val₀ j) :=
+  uniqueOfSubsingleton (Nonempty.some inferInstance)
 
 variable (val₀ : F.obj (op ⊥))
 
-def sectionsMk : F.sections where
+noncomputable def sectionsMk : F.sections where
   val j := (default : d.Extension val₀ j.unop).val
   property _ := Extension.compatibility _ _ _
 
