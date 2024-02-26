@@ -20,8 +20,8 @@ def _root_.PrincipalSeg.ofElementSectionsMk {j : J} (x : F.obj (op j)):
     rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
 
 structure WellOrderInductionData where
-  succ (j : J) : F.obj (op j) → F.obj (op (wellOrderSucc j))
-  map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (self_le_wellOrderSucc j)).op (succ j x) = x
+  succ (j : J) (hj : j < wellOrderSucc j) : F.obj (op j) → F.obj (op (wellOrderSucc j))
+  map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (self_le_wellOrderSucc j)).op (succ j hj x) = x
   desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) : F.obj (op j)
   fac (j : J) [IsWellOrderLimitElement j] (i : J) (hi : i < j)
@@ -39,7 +39,7 @@ structure Extension (val₀ : F.obj (op ⊥)) (j : J) where
   map_zero : F.map (homOfLE bot_le).op val = val₀
   map_succ (i : J) (hi : i < j) :
     F.map (homOfLE (wellOrderSucc_le hi)).op val =
-      d.succ i (F.map (homOfLE hi.le).op val)
+      d.succ i (self_lt_wellOrderSucc hi) (F.map (homOfLE hi.le).op val)
   map_limit (i : J) [IsWellOrderLimitElement i] (hi : i ≤ j) :
     F.map (homOfLE hi).op val = d.desc i (PrincipalSeg.ofElementSectionsMk F (F.map (homOfLE hi).op val))
 
@@ -120,7 +120,7 @@ variable {val₀}
 
 def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) :
     d.Extension val₀ (wellOrderSucc j) where
-  val := d.succ j e.val
+  val := d.succ j hj e.val
   map_zero := by
     have h := congr_arg (F.map (homOfLE (bot_le : ⊥ ≤ j)).op) (d.map_succ j hj e.val)
     rw [e.map_zero, ← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp] at h

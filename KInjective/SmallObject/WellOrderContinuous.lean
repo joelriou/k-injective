@@ -150,6 +150,11 @@ class WellOrderContinuous (F : J ⥤ D) : Prop where
 instance (F : ℕ ⥤ D) : F.WellOrderContinuous where
   nonempty_isColimit h := False.elim (Nat.not_isWellOrderLimitElement h.top)
 
+noncomputable def isColimitOfWellOrderContinuous (F : J ⥤ D) [WellOrderContinuous F] {α : Type u} [LinearOrder α]
+    (h : PrincipalSeg (· < · : α → α → Prop) (· < · : J → J → Prop)) [IsWellOrderLimitElement h.top] :
+  (IsColimit (F.coconeOfFunctorToOver h.functorToOver)) :=
+    Nonempty.some (WellOrderContinuous.nonempty_isColimit h)
+
 end Functor
 
 namespace MorphismProperty
@@ -157,14 +162,14 @@ namespace MorphismProperty
 variable {C : Type*} [Category C] (W : MorphismProperty C)
 
 class IsStableUnderTransfiniteCompositionOfShape (β : Type*) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β] : Prop where
-  condition (F : β ⥤ C) [F.WellOrderContinuous] (hF : ∀ (a : β), W (F.map (homOfLE (self_le_wellOrderSucc a))))
+  condition (F : β ⥤ C) [F.WellOrderContinuous] (hF : ∀ (a : β) (_ : a < wellOrderSucc a), W (F.map (homOfLE (self_le_wellOrderSucc a))))
     (c : Cocone F) (hc : IsColimit c) : W (c.ι.app ⊥)
 
 abbrev IsStableUnderInfiniteComposition := W.IsStableUnderTransfiniteCompositionOfShape ℕ
 
 class IsStableUnderTransfiniteComposition extends W.IsMultiplicative : Prop where
   isStableUnderTransfiniteCompositionOfShape (β : Type u) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β] :
-    W.IsStableUnderTransfiniteCompositionOfShape β
+    W.IsStableUnderTransfiniteCompositionOfShape β := by infer_instance
 
 end MorphismProperty
 
