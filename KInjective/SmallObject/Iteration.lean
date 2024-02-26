@@ -22,13 +22,15 @@ namespace Functor
 
 namespace Iteration
 
-variable {j : J} (F : { i | i ≤ j } ⥤ C ⥤ C)
+variable {j : J} (F : { i | i ≤ j } ⥤ C)
 
-section
+noncomputable abbrev mapSucc' (i : J) (hi : i < j) :
+    F.obj ⟨i, hi.le⟩ ⟶ F.obj ⟨wellOrderSucc i, wellOrderSucc_le hi⟩ :=
+  F.map (homOfLE (by simpa only [Subtype.mk_le_mk] using self_le_wellOrderSucc i))
 
 variable {i : J} (hi : i ≤ j)
 
-def restrictionLT : { k | k < i } ⥤ C ⥤ C :=
+def restrictionLT : { k | k < i } ⥤ C :=
   (monotone_inclusion_lt_le_of_le hi).functor ⋙ F
 
 @[simp]
@@ -49,7 +51,7 @@ def coconeOfLE :
         dsimp
         rw [comp_id, ← Functor.map_comp, homOfLE_comp] }
 
-def restrictionLE : { k | k ≤ i } ⥤ C ⥤ C :=
+def restrictionLE : { k | k ≤ i } ⥤ C :=
   (monotone_inclusion_le_le_of_le hi).functor ⋙ F
 
 @[simp]
@@ -59,12 +61,6 @@ lemma restrictionLE_obj (k : J) (hk : k ≤ i) :
 @[simp]
 lemma restrictionLE_map {k₁ k₂ : { k | k ≤ i }} (φ : k₁ ⟶ k₂) :
     (restrictionLE F hi).map φ = F.map (homOfLE (by simpa using leOfHom φ)) := rfl
-
-end
-
-noncomputable abbrev mapSucc' (i : J) (hi : i < j) :
-    F.obj ⟨i, hi.le⟩ ⟶ F.obj ⟨wellOrderSucc i, wellOrderSucc_le hi⟩ :=
-  F.map (homOfLE (by simpa only [Subtype.mk_le_mk] using self_le_wellOrderSucc i))
 
 end Iteration
 
@@ -361,7 +357,132 @@ noncomputable def iso : iter₁ ≅ iter₂ where
   hom := default
   inv := default
 
+variable (ε J) in
+def mkOfBot : Iteration ε (⊥ : J) where
+  F := (Functor.const _).obj (𝟭 C)
+  isoZero := Iso.refl _
+  isoSucc _ h := by simp at h
+  mapSucc'_eq _ h := by simp at h
+  isColimit x _ h := by
+    exfalso
+    exact (IsWellOrderLimitElement.neq_bot x) (by simpa using h)
+
+section
+
+variable {j : J} (F : { i | i ≤ j} ⥤ C) (X : C)
+    (τ : F.obj ⟨j, le_refl j⟩ ⟶ X) (hj : j < wellOrderSucc j)
+
+def mkFunctorOfSuccObj (i : J) : C :=
+  if h : i ≤ j then F.obj ⟨i, h⟩ else X
+
+def mkFunctorOfSuccObjIsoOfLE (i : J) (hi : i ≤ j) :
+    mkFunctorOfSuccObj F X i ≅ F.obj ⟨i, hi⟩ := eqToIso (dif_pos hi)
+
+noncomputable def mkFunctorOfSuccObjSuccIso :
+    mkFunctorOfSuccObj F X (wellOrderSucc j) ≅ X := eqToIso (dif_neg (by aesop))
+
+variable {X}
+
+noncomputable def mkFunctorOfSuccMap (i₁ i₂ : J) (hi : i₁ ≤ i₂) (hi₂ : i₂ ≤ wellOrderSucc j):
+    mkFunctorOfSuccObj F X i₁ ⟶ mkFunctorOfSuccObj F X i₂ :=
+  if h₂ : i₂ ≤ j then
+    (mkFunctorOfSuccObjIsoOfLE F X i₁ (hi.trans h₂)).hom ≫
+      F.map (homOfLE (by exact hi)) ≫ (mkFunctorOfSuccObjIsoOfLE F X i₂ h₂).inv
+  else
+    if h₁ : i₁ ≤ j then
+      (mkFunctorOfSuccObjIsoOfLE F X i₁ h₁).hom ≫ F.map (homOfLE (by exact h₁)) ≫ τ ≫
+        (mkFunctorOfSuccObjSuccIso F X hj).inv ≫
+        eqToHom (by rw [le_antisymm hi₂ (wellOrderSucc_le (not_le.1 h₂))])
+    else
+      eqToHom (by rw [le_antisymm hi (hi₂.trans (wellOrderSucc_le (not_le.1 h₁)))])
+
+lemma mkFunctorOfSuccMap_eq_of_le₂ (i₁ i₂ : J) (hi : i₁ ≤ i₂) (hi₂ : i₂ ≤ j) :
+    mkFunctorOfSuccMap F τ hj i₁ i₂ hi (hi₂.trans (self_le_wellOrderSucc j)) =
+      (mkFunctorOfSuccObjIsoOfLE F X i₁ (hi.trans hi₂)).hom ≫
+        F.map (homOfLE (by exact hi)) ≫ (mkFunctorOfSuccObjIsoOfLE F X i₂ hi₂).inv :=
+  dif_pos hi₂
+
+@[simp]
+lemma mkFunctorOfSuccMap_id (i : J) (hi : i ≤ wellOrderSucc j) :
+    mkFunctorOfSuccMap F τ hj i i (le_refl i) hi = 𝟙 _ := by
+  by_cases hi' : i ≤ j
+  · rw [mkFunctorOfSuccMap_eq_of_le₂ F τ hj i i (by rfl) (hi')]
+    erw [Functor.map_id]
+    rw [id_comp, Iso.hom_inv_id]
+  · dsimp [mkFunctorOfSuccMap]
+    rw [dif_neg hi', dif_neg hi']
+
+lemma mkFunctorOfSuccMap_comp (i₁ i₂ i₃ : J) (h₁ : i₁ ≤ i₂) (h₂ : i₂ ≤ i₃) (h₃ : i₃ ≤ wellOrderSucc j) :
+    mkFunctorOfSuccMap F τ hj i₁ i₃ (h₁.trans h₂) h₃ =
+      mkFunctorOfSuccMap F τ hj i₁ i₂ h₁ (h₂.trans h₃) ≫ mkFunctorOfSuccMap F τ hj i₂ i₃ h₂ h₃ := by
+  obtain h₄|rfl := h₃.lt_or_eq
+  · replace h₄ : i₃ ≤ j := le_of_lt_wellOrderSucc h₄
+    rw [mkFunctorOfSuccMap_eq_of_le₂ F τ hj i₁ i₂ _ (h₂.trans h₄),
+      mkFunctorOfSuccMap_eq_of_le₂ F τ hj i₂ i₃ _ h₄,
+      mkFunctorOfSuccMap_eq_of_le₂ F τ hj i₁ i₃ _ h₄]
+    dsimp
+    rw [assoc, assoc, Iso.inv_hom_id_assoc, ← Functor.map_comp_assoc,
+      homOfLE_comp]
+  · obtain h₄|rfl := h₂.lt_or_eq
+    · replace h₄ : i₂ ≤ j := le_of_lt_wellOrderSucc h₄
+      rw [mkFunctorOfSuccMap_eq_of_le₂ F τ hj i₁ i₂ _ h₄]
+      dsimp [mkFunctorOfSuccMap]
+      rw [dif_neg (by aesop), dif_pos (h₁.trans h₄), dif_neg (by aesop), dif_pos h₄,
+        comp_id, assoc, assoc, Iso.inv_hom_id_assoc, ← Functor.map_comp_assoc, homOfLE_comp]
+    · rw [mkFunctorOfSuccMap_id, comp_id]
+
+@[simps obj]
+noncomputable def mkFunctorOfSucc : { i | i ≤ wellOrderSucc j } ⥤ C where
+  obj i := mkFunctorOfSuccObj F X i
+  map := @fun ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ φ => mkFunctorOfSuccMap F τ hj i₁ i₂ (by simpa using leOfHom φ) h₂
+  map_comp := by
+    rintro ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ ⟨i₃, h₃⟩ _ _
+    exact mkFunctorOfSuccMap_comp F τ hj i₁ i₂ i₃ _ _ h₃
+
+@[simp]
+lemma mapSucc'_mkFunctorOfSucc :
+    mapSucc' (mkFunctorOfSucc F τ hj) j hj =
+      (mkFunctorOfSuccObjIsoOfLE F X j (le_refl j)).hom ≫ τ ≫ (mkFunctorOfSuccObjSuccIso F X hj).inv := by
+  dsimp [mapSucc', mkFunctorOfSucc, mkFunctorOfSuccMap]
+  rw [dif_neg (by aesop), dif_pos (le_refl j)]
+  erw [Functor.map_id]
+  simp
+
+end
+
+noncomputable def mkOfSucc (j : J) (hj : j < wellOrderSucc j) (iter : Iteration ε j) :
+    Iteration ε (wellOrderSucc j) where
+  F := mkFunctorOfSucc iter.F (whiskerLeft _ ε) hj
+  isoZero := mkFunctorOfSuccObjIsoOfLE _ _ _ _ ≪≫ iter.isoZero
+  isoSucc i hi :=
+    if h : i < j then
+      sorry
+    else by
+      obtain rfl : j = i := le_antisymm (not_lt.1 h) (le_of_lt_wellOrderSucc hi)
+      exact mkFunctorOfSuccObjSuccIso _ _ hj ≪≫
+        isoWhiskerRight ((mkFunctorOfSuccObjIsoOfLE iter.F (iter.F.obj ⟨j, le_refl j⟩ ⋙ Φ) j (le_refl j)).symm) _
+  mapSucc'_eq i hi := by
+    dsimp
+    split_ifs with h
+    · sorry
+    · obtain rfl : j = i := le_antisymm (not_lt.1 h) (le_of_lt_wellOrderSucc hi)
+      dsimp
+      simp
+      ext X
+      apply ε.naturality
+  isColimit := sorry
+
+def mkOfLimit (j : J) [IsWellOrderLimitElement j] (iter : ∀ (i : J) (hi : i < j), Iteration ε i) :
+    Iteration ε j := sorry
+
 end Iteration
+
+def nonempty_iteration (j : J) : Nonempty (Iteration ε j) := by
+  refine' WellFoundedLT.induction (C := fun i => Nonempty (Iteration ε i)) j (fun j hj => _)
+  obtain rfl|⟨i, rfl, hi⟩|_ := eq_bot_or_eq_succ_or_isWellOrderLimitElement j
+  · exact ⟨Iteration.mkOfBot ε J⟩
+  · exact ⟨Iteration.mkOfSucc i hi (hj i hi).some⟩
+  · exact ⟨Iteration.mkOfLimit _ (fun i hi => (hj i hi).some)⟩
 
 end Functor
 
