@@ -24,10 +24,10 @@ structure WellOrderInductionData where
   map_succ (j : J) (hj : j < wellOrderSucc j) (x : F.obj (op j)) : F.map (homOfLE (self_le_wellOrderSucc j)).op (succ j x) = x
   desc (j : J) [IsWellOrderLimitElement j] (x : (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
       Over.forget _).op ⋙ F).sections) : F.obj (op j)
-  fac (j : J) [IsWellOrderLimitElement j]
+  fac (j : J) [IsWellOrderLimitElement j] (i : J) (hi : i < j)
     (x : (((PrincipalSeg.ofElement (· < ·) j).functorToOver ⋙
-      Over.forget _).op ⋙ F).sections) (a : { x | x < j }) :
-        x.val (op a) = F.map (homOfLE (le_of_lt a.2)).op (desc j x)
+      Over.forget _).op ⋙ F).sections) :
+        F.map (homOfLE (le_of_lt hi)).op (desc j x) = x.val (op ⟨i, hi⟩)
 
 namespace WellOrderInductionData
 
@@ -144,13 +144,13 @@ def extensionSucc {j : J} (e : d.Extension val₀ j) (hj : j < wellOrderSucc j) 
       congr 1
       ext ⟨a, ha⟩
       dsimp
-      rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp, ← d.fac i _ ⟨a, ha⟩]
+      rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp, d.fac i a ha]
       dsimp
       rw [← FunctorToTypes.map_comp_apply, ← op_comp, homOfLE_comp]
 
 variable (val₀) in
 def extensionLimit (j : J) [IsWellOrderLimitElement j]
-    (e : ∀ (i : J) (hi : i < j), d.Extension val₀ i) :
+    (e : ∀ (i : J) (_ : i < j), d.Extension val₀ i) :
     d.Extension val₀ j where
   val := d.desc j
     { val := fun ⟨i, (hi : i < j)⟩ => (e i hi).val
@@ -159,10 +159,31 @@ def extensionLimit (j : J) [IsWellOrderLimitElement j]
     have h := (e ⊥ (IsWellOrderLimitElement.bot_lt j)).map_zero
     erw [Functor.map_id] at h
     dsimp at h ⊢
-    rw [← d.fac j _ ⟨⊥, IsWellOrderLimitElement.bot_lt j⟩]
+    rw [d.fac j ⊥ (IsWellOrderLimitElement.bot_lt j)]
     exact h
-  map_succ := sorry
-  map_limit := sorry
+  map_succ := fun i hi => by
+    have hi' := IsWellOrderLimitElement.wellOrderSucc_lt hi
+    convert (e (wellOrderSucc i) hi').map_succ i
+      (self_lt_wellOrderSucc hi) using 1
+    · erw [Functor.map_id]
+      rw [d.fac j _ hi']
+      rfl
+    · rw [← homOfLE_comp (self_lt_wellOrderSucc hi).le hi'.le, op_comp,
+        FunctorToTypes.map_comp_apply, d.fac j _ hi']
+      rfl
+  map_limit := fun i _ hi => by
+    obtain rfl|h := eq_or_lt_of_le hi
+    · erw [Functor.map_id]
+      dsimp
+      congr 1
+      ext ⟨k, hk⟩
+      dsimp
+      rw [d.fac i _ hk]
+      rfl
+    · have eq := (e i h).map_limit i (by rfl)
+      erw [Functor.map_id] at eq
+      rw [d.fac j _ h]
+      exact eq
 
 instance (j : J) : Nonempty (d.Extension val₀ j) := by
   apply @WellFoundedLT.induction J _ _ (fun j => Nonempty (d.Extension val₀ j))
