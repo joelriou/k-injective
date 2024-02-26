@@ -448,6 +448,11 @@ lemma mapSucc'_mkFunctorOfSucc :
   erw [Functor.map_id]
   simp
 
+lemma mapSucc'_mkFunctorOfSucc_of_lt (i : J) (hi : i < j) :
+    mapSucc' (mkFunctorOfSucc F τ hj) i (hi.trans hj) = (mkFunctorOfSuccObjIsoOfLE F X i hi.le).hom ≫
+      F.map (homOfLE (by exact self_le_wellOrderSucc i)) ≫ (mkFunctorOfSuccObjIsoOfLE F X (wellOrderSucc i) (wellOrderSucc_le hi)).inv := by
+  sorry
+
 end
 
 noncomputable def mkOfSucc (j : J) (hj : j < wellOrderSucc j) (iter : Iteration ε j) :
@@ -455,8 +460,8 @@ noncomputable def mkOfSucc (j : J) (hj : j < wellOrderSucc j) (iter : Iteration 
   F := mkFunctorOfSucc iter.F (whiskerLeft _ ε) hj
   isoZero := mkFunctorOfSuccObjIsoOfLE _ _ _ _ ≪≫ iter.isoZero
   isoSucc i hi :=
-    if h : i < j then
-      sorry
+    if h : i < j then mkFunctorOfSuccObjIsoOfLE _ _ _ _ ≪≫ iter.isoSucc i h ≪≫
+      isoWhiskerRight ((mkFunctorOfSuccObjIsoOfLE _ _ _ _).symm) Φ
     else by
       obtain rfl : j = i := le_antisymm (not_lt.1 h) (le_of_lt_wellOrderSucc hi)
       exact mkFunctorOfSuccObjSuccIso _ _ hj ≪≫
@@ -464,7 +469,12 @@ noncomputable def mkOfSucc (j : J) (hj : j < wellOrderSucc j) (iter : Iteration 
   mapSucc'_eq i hi := by
     dsimp
     split_ifs with h
-    · sorry
+    · rw [mapSucc'_mkFunctorOfSucc_of_lt _ _ _ _ h]
+      ext X
+      dsimp
+      rw [assoc]
+      erw [← ε.naturality_assoc, congr_app (iter.mapSucc_eq i h) X, assoc]
+      rfl
     · obtain rfl : j = i := le_antisymm (not_lt.1 h) (le_of_lt_wellOrderSucc hi)
       dsimp
       simp
