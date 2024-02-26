@@ -450,8 +450,9 @@ lemma mapSucc'_mkFunctorOfSucc :
 
 lemma mapSucc'_mkFunctorOfSucc_of_lt (i : J) (hi : i < j) :
     mapSucc' (mkFunctorOfSucc F τ hj) i (hi.trans hj) = (mkFunctorOfSuccObjIsoOfLE F X i hi.le).hom ≫
-      F.map (homOfLE (by exact self_le_wellOrderSucc i)) ≫ (mkFunctorOfSuccObjIsoOfLE F X (wellOrderSucc i) (wellOrderSucc_le hi)).inv := by
-  sorry
+      F.map (homOfLE (by exact self_le_wellOrderSucc i)) ≫
+        (mkFunctorOfSuccObjIsoOfLE F X (wellOrderSucc i) (wellOrderSucc_le hi)).inv := by
+  apply mkFunctorOfSuccMap_eq_of_le₂
 
 end
 
@@ -480,7 +481,7 @@ noncomputable def mkOfSucc (j : J) (hj : j < wellOrderSucc j) (iter : Iteration 
       simp
       ext X
       apply ε.naturality
-  isColimit := sorry
+  isColimit i _ hi := sorry
 
 def mkOfLimit (j : J) [IsWellOrderLimitElement j] (iter : ∀ (i : J) (hi : i < j), Iteration ε i) :
     Iteration ε j := sorry
