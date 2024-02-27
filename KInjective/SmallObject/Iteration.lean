@@ -11,6 +11,10 @@ lemma monotone_inclusion_le_le_of_le {α : Type*} [Preorder α] {k j : α} (hkj 
     Monotone (fun ⟨i, hi⟩ => ⟨i, hi.trans hkj⟩ : { i | i ≤ k } → { i | i ≤ j}) :=
   fun _ _ h => h
 
+lemma monotone_inclusion_lt_lt_of_le {α : Type*} [Preorder α] {k j : α} (hkj : k ≤ j) :
+    Monotone (fun ⟨i, hi⟩ => ⟨i, lt_of_lt_of_le hi hkj⟩ : { i | i < k } → { i | i < j}) :=
+  fun _ _ h => h
+
 namespace CategoryTheory
 
 open Category Limits
@@ -22,6 +26,8 @@ variable {C : Type*} [Category C]
 namespace Functor
 
 namespace Iteration
+
+section
 
 variable {j : J} (F : { i | i ≤ j } ⥤ C)
 
@@ -62,6 +68,25 @@ lemma restrictionLE_obj (k : J) (hk : k ≤ i) :
 @[simp]
 lemma restrictionLE_map {k₁ k₂ : { k | k ≤ i }} (φ : k₁ ⟶ k₂) :
     (restrictionLE F hi).map φ = F.map (homOfLE (by simpa using leOfHom φ)) := rfl
+
+end
+
+section
+
+variable {j : J} (F : { i | i < j } ⥤ C) {i : J} (hi : i ≤ j)
+
+def restrictionLTLT : { k | k < i } ⥤ C :=
+  (monotone_inclusion_lt_lt_of_le hi).functor ⋙ F
+
+@[simp]
+lemma restrictionLTLT_obj (k : J) (hk : k < i) :
+    (restrictionLTLT F hi).obj ⟨k, hk⟩ = F.obj ⟨k, lt_of_lt_of_le hk hi⟩ := rfl
+
+@[simp]
+lemma restrictionLTLT_map {k₁ k₂ : { k | k < i }} (φ : k₁ ⟶ k₂) :
+    (restrictionLTLT F hi).map φ = F.map (homOfLE (by simpa using leOfHom φ)) := rfl
+
+end
 
 end Iteration
 
@@ -136,6 +161,9 @@ instance : Subsingleton (iter₁ ⟶ iter₂) where
     · exact (iter₁.isColimit i hi').hom_ext (fun ⟨k, hk⟩ => by simp [hi k hk]))
 
 end Hom
+
+@[simp]
+lemma natTrans_id : Hom.natTrans (𝟙 iter₁) = 𝟙 _ := rfl
 
 variable {iter₁ iter₂} in
 @[simp, reassoc]
@@ -605,6 +633,18 @@ def mkFunctorOfCocone : { i | i ≤ j } ⥤ C where
     rintro ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ ⟨i₃, h₃⟩ f g
     exact mkFunctorOfCoconeMap_comp F c i₁ i₂ i₃ _ _ h₃
 
+@[simps!]
+def restrictionLTMkFunctorOfCoconeIso : restrictionLT (mkFunctorOfCocone F c) (le_refl j) ≅ F :=
+  NatIso.ofComponents (fun ⟨i, hi⟩ => mkFunctorOfCoconeObjIso _ _ _ _) (by
+    rintro ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ φ
+    dsimp
+    rw [mkFunctorOfCoconeMap_of_lt _ _ _ _ _ h₂, assoc, assoc, Iso.inv_hom_id, comp_id]
+    rfl)
+
+def restrictionLTMkFunctorOfCoconeIsoOfLE {i : J} (hi : i ≤ j) :
+    restrictionLT (mkFunctorOfCocone F c) hi ≅ restrictionLTLT F hi :=
+  isoWhiskerLeft (monotone_inclusion_lt_lt_of_le hi).functor (restrictionLTMkFunctorOfCoconeIso F c)
+
 end
 
 variable (j)
@@ -632,6 +672,21 @@ noncomputable def mkOfLimitFunctor : {i | i < j} ⥤ C ⥤ C where
       ((truncFunctor ε hf).map ((iso (iter i₂ h₂) (trunc (iter i₃ h₃) (leOfHom g))).hom))]
     rfl
 
+noncomputable def restrictionLTLTMkOfLimitFunctorIso {i : J} (hi : i < j) :
+    restrictionLTLT (mkOfLimitFunctor j iter) hi.le ≅ restrictionLT (iter i hi).F (le_refl i) :=
+  NatIso.ofComponents
+    (fun ⟨k, hk⟩ => (eval ε _).mapIso (iso (iter k (hk.trans hi)) ((iter i hi).trunc hk.le)))
+    (@fun ⟨k₁, h₁⟩ ⟨k₂, h₂⟩ φ => by
+      have hφ : k₁ ≤ k₂ := leOfHom φ
+      dsimp
+      rw [iso_trans (iter k₁ (h₁.trans hi)) (trunc (iter k₂ (h₂.trans hi)) hφ)
+        (trunc (iter i hi) h₁.le)]
+      dsimp
+      rw [assoc, assoc, NatTrans.naturality,
+        Subsingleton.elim (iso (trunc (iter k₂ (h₂.trans hi)) hφ) (trunc (iter i hi) h₁.le)).hom
+        ((truncFunctor ε hφ).map (iso (iter k₂ (h₂.trans hi)) (trunc (iter i hi) h₂.le)).hom)]
+      rfl)
+
 noncomputable def mkOfLimit [HasColimit (mkOfLimitFunctor j iter)] :
     Iteration ε j where
   F := mkFunctorOfCocone (mkOfLimitFunctor j iter) (colimit.cocone _)
@@ -652,7 +707,28 @@ noncomputable def mkOfLimit [HasColimit (mkOfLimitFunctor j iter)] :
     ext X
     dsimp
     erw [ε.naturality_assoc, ε.naturality_assoc]
-  isColimit := sorry
+  isColimit i _ hi := by
+    clear iter₁ iter₂
+    apply (IsColimit.precomposeHomEquiv (restrictionLTMkFunctorOfCoconeIsoOfLE
+      (mkOfLimitFunctor j iter) (colimit.cocone _) hi).symm _).1
+    apply Nonempty.some
+    obtain hi'|rfl := hi.lt_or_eq
+    · refine' ⟨(IsColimit.precomposeHomEquiv (restrictionLTLTMkOfLimitFunctorIso j iter hi').symm _).1
+        (IsColimit.ofIsoColimit ((iter i hi').isColimit i (le_refl i))
+        (Cocones.ext (mkFunctorOfCoconeObjIso (mkOfLimitFunctor j iter) _ _ hi').symm (fun ⟨k, hk⟩ => _)))⟩
+      dsimp [restrictionLTMkFunctorOfCoconeIsoOfLE, restrictionLTLTMkOfLimitFunctorIso]
+      rw [mkFunctorOfCoconeMap_of_lt _ _ _ _ _ hi']
+      dsimp
+      rw [assoc, Iso.inv_hom_id_assoc, ← NatTrans.comp_app_assoc, ← natTrans_comp, Iso.inv_hom_id,
+        natTrans_id, NatTrans.id_app]
+      dsimp
+      rw [id_comp]
+    · refine' ⟨IsColimit.ofIsoColimit (colimit.isColimit (mkOfLimitFunctor i iter))
+        (Cocones.ext (mkFunctorOfCoconeObjTopIso _ _).symm (fun ⟨k, hk⟩ => _))⟩
+      dsimp [restrictionLTMkFunctorOfCoconeIsoOfLE]
+      rw [mkFunctorOfCoconeMap_of_lt_top _ _ _ hk]
+      dsimp
+      rw [Iso.inv_hom_id_assoc]
 
 end Iteration
 
@@ -678,13 +754,81 @@ instance hasColimitsOfShape_of_hasIterationOfShape (j : J) [IsWellOrderLimitElem
 
 end
 
-variable (C J) in
 def nonempty_iteration [HasIterationOfShape C J] (j : J) : Nonempty (Iteration ε j) := by
   refine' WellFoundedLT.induction (C := fun i => Nonempty (Iteration ε i)) j (fun j hj => _)
   obtain rfl|⟨i, rfl, hi⟩|_ := eq_bot_or_eq_succ_or_isWellOrderLimitElement j
   · exact ⟨Iteration.mkOfBot ε J⟩
   · exact ⟨Iteration.mkOfSucc i hi (hj i hi).some⟩
   · exact ⟨Iteration.mkOfLimit _ (fun i hi => (hj i hi).some)⟩
+
+section
+
+variable (Φ)
+variable [HasIterationOfShape C J]
+
+noncomputable def iteration (j : J) : Iteration ε j := (nonempty_iteration ε j).some
+
+noncomputable def iterationFunctorObj (j : J) : C ⥤ C := (Φ.iteration ε j).F.obj ⟨j, le_refl j⟩
+
+noncomputable def iterationFunctorMap (j₁ j₂ : J) (h : j₁ ≤ j₂) :
+    Φ.iterationFunctorObj ε j₁ ⟶ Φ.iterationFunctorObj ε j₂ :=
+  (Iteration.eval ε (le_refl j₁)).map (Iteration.iso (Φ.iteration ε j₁) ((Φ.iteration ε j₂).trunc h)).hom ≫
+    (iteration Φ ε j₂).F.map (homOfLE (by simpa using h))
+
+@[simp]
+noncomputable def iterationFunctorMap_id (i : J) :
+    Φ.iterationFunctorMap ε i i (le_refl i) = 𝟙 _ := by
+  dsimp [iterationFunctorMap]
+  erw [Functor.map_id, Iteration.iso_refl, comp_id]
+  rfl
+
+noncomputable def iterationFunctorMap_comp (i₁ i₂ i₃ : J) (h₁ : i₁ ≤ i₂) (h₂ : i₂ ≤ i₃) :
+    Φ.iterationFunctorMap ε i₁ i₃ (h₁.trans h₂) = Φ.iterationFunctorMap ε i₁ i₂ h₁ ≫ Φ.iterationFunctorMap ε i₂ i₃ h₂ := by
+  dsimp [iterationFunctorMap]
+  rw [Iteration.iso_trans (Φ.iteration ε i₁) ((Φ.iteration ε i₂).trunc h₁) ((Φ.iteration ε i₃).trunc (h₁.trans h₂))]
+  dsimp
+  rw [assoc, assoc, NatTrans.naturality_assoc]
+  dsimp
+  rw [← Functor.map_comp, homOfLE_comp,
+    Subsingleton.elim (Iteration.iso (Iteration.trunc (iteration Φ ε i₂) h₁) (Iteration.trunc (iteration Φ ε i₃) (h₁.trans h₂))).hom
+    ((Iteration.truncFunctor ε h₁).map (Iteration.iso (iteration Φ ε i₂) (Iteration.trunc (iteration Φ ε i₃) h₂)).hom)]
+  rfl
+
+variable (J)
+
+noncomputable def iterationFunctor : J ⥤ C ⥤ C where
+  obj := Φ.iterationFunctorObj ε
+  map φ := Φ.iterationFunctorMap ε _ _ (leOfHom φ)
+  map_comp _ _  := by apply iterationFunctorMap_comp
+
+noncomputable def iterationFunctorBotIso :
+    (Φ.iterationFunctor ε J).obj ⊥ ≅ 𝟭 _ :=
+  (Φ.iteration ε (⊥ : J)).isoZero
+
+section
+
+variable {J}
+
+noncomputable def iterationFunctorSuccIso (j : J) (hj : j < wellOrderSucc j) :
+    (Φ.iterationFunctor ε J).obj (wellOrderSucc j) ≅ (Φ.iterationFunctor ε J).obj j ⋙ Φ := by
+  sorry
+
+noncomputable def iterationFunctor_map_succ (j : J) (hj : j < wellOrderSucc j) :
+    (Φ.iterationFunctor ε J).map (homOfLE (self_le_wellOrderSucc j)) =
+      whiskerLeft ((Φ.iterationFunctor ε J).obj j) ε  ≫ (Φ.iterationFunctorSuccIso ε j hj).inv := by
+  sorry
+
+instance : (Φ.iterationFunctor ε J).WellOrderContinuous := sorry
+
+end
+
+noncomputable def iterationFunctorCocone : Cocone (Φ.iterationFunctor ε J) := colimit.cocone _
+
+noncomputable def isColimitIterationFunctorCocone := IsColimit (Φ.iterationFunctorCocone ε J)
+
+noncomputable def iter : C ⥤ C := (Φ.iterationFunctorCocone ε J).pt
+
+end
 
 end Functor
 
