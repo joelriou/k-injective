@@ -13,15 +13,36 @@ variable (W : MorphismProperty C)
 def llpWith : MorphismProperty C := fun _ _ i =>
   ∀ ⦃X Y : C⦄ (p : X ⟶ Y) (_ : W p), HasLiftingProperty i p
 
+def rlpWith : MorphismProperty C := fun _ _ p =>
+  ∀ ⦃A B : C⦄ (i : A ⟶ B) (_ : W i), HasLiftingProperty i p
+
 instance : W.llpWith.ContainsIdentities where
   id_mem' _ _ _ _ _ := inferInstance
-
 
 instance : W.llpWith.IsMultiplicative where
   stableUnderComposition _ _ _ i j hi hj _ _ p hp := by
     have := hi p hp
     have := hj p hp
     infer_instance
+
+instance : W.rlpWith.ContainsIdentities where
+  id_mem' _ _ _ _ _ := inferInstance
+
+instance : W.rlpWith.IsMultiplicative where
+  stableUnderComposition _ _ _ p q hp hq _ _ i hi := by
+    have := hp i hi
+    have := hq i hi
+    infer_instance
+
+lemma le_llpWith_rlpWith : W ≤ W.llpWith.rlpWith := by
+  intro X Y p hp A B i hi
+  have := hi p hp
+  infer_instance
+
+lemma le_rlpWith_llpWith : W ≤ W.rlpWith.llpWith := by
+  intro A B i hi X Y p hp
+  have := hp i hi
+  infer_instance
 
 namespace IsStableUnderTransfiniteCompositionOfShapeLlpWith
 
