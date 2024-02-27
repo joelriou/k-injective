@@ -796,6 +796,7 @@ noncomputable def iterationFunctorMap_comp (i₁ i₂ i₃ : J) (h₁ : i₁ ≤
 
 variable (J)
 
+@[simps! obj map]
 noncomputable def iterationFunctor : J ⥤ C ⥤ C where
   obj := Φ.iterationFunctorObj ε
   map φ := Φ.iterationFunctorMap ε _ _ (leOfHom φ)
@@ -810,17 +811,56 @@ section
 variable {J}
 
 noncomputable def iterationFunctorSuccIso (j : J) (hj : j < wellOrderSucc j) :
-    (Φ.iterationFunctor ε J).obj (wellOrderSucc j) ≅ (Φ.iterationFunctor ε J).obj j ⋙ Φ := by
-  sorry
+    (Φ.iterationFunctor ε J).obj (wellOrderSucc j) ≅ (Φ.iterationFunctor ε J).obj j ⋙ Φ :=
+  (Φ.iteration ε (wellOrderSucc j)).isoSucc j hj ≪≫
+    isoWhiskerRight ((Iteration.eval ε _).mapIso
+      (Iteration.iso (Φ.iteration ε j)
+        ((Φ.iteration ε (wellOrderSucc j)).trunc (self_le_wellOrderSucc j))).symm) Φ
 
 noncomputable def iterationFunctor_map_succ (j : J) (hj : j < wellOrderSucc j) :
     (Φ.iterationFunctor ε J).map (homOfLE (self_le_wellOrderSucc j)) =
-      whiskerLeft ((Φ.iterationFunctor ε J).obj j) ε  ≫ (Φ.iterationFunctorSuccIso ε j hj).inv := by
-  sorry
+      whiskerLeft ((Φ.iterationFunctor ε J).obj j) ε ≫ (Φ.iterationFunctorSuccIso ε j hj).inv := by
+  ext X
+  have h := congr_app ((Φ.iteration ε (wellOrderSucc j)).mapSucc_eq j hj) X
+  dsimp at h
+  dsimp [iterationFunctorSuccIso]
+  erw [← ε.naturality_assoc, ← h]
+  rfl
 
-instance : (Φ.iterationFunctor ε J).WellOrderContinuous := sorry
+noncomputable def restrictionLEIterationIso (j : J) :
+    (Subtype.mono_coe { i | i ≤ j }).functor ⋙
+      Φ.iterationFunctor ε J ≅ (Φ.iteration ε j).F :=
+  NatIso.ofComponents
+    (fun ⟨i, hi⟩ => (Iteration.eval ε _).mapIso
+      (Iteration.iso (Φ.iteration ε i) ((Φ.iteration ε j).trunc hi))) (by
+        rintro ⟨i₁, h₁ : _ ≤ _⟩ ⟨i₂, h₂ : _ ≤ _⟩ φ
+        have hφ : i₁ ≤ i₂ := leOfHom φ
+        dsimp [iterationFunctorMap]
+        rw [assoc, NatTrans.naturality, Iteration.iso_trans (Φ.iteration ε i₁)
+          ((Φ.iteration ε i₂).trunc hφ) ((Φ.iteration ε j).trunc (hφ.trans h₂))]
+        dsimp
+        rw [assoc, Subsingleton.elim (Iteration.iso ((Φ.iteration ε i₂).trunc hφ)
+            ((Φ.iteration ε j).trunc (hφ.trans h₂))).hom
+          ((Iteration.truncFunctor ε hφ).map
+            (Iteration.iso (Φ.iteration ε i₂) ((Φ.iteration ε j).trunc h₂)).hom)]
+        rfl)
+
+noncomputable def restrictionLTIterationIso (j : J) :
+    (Subtype.mono_coe { i | i < j }).functor ⋙
+      Φ.iterationFunctor ε J ≅ Iteration.restrictionLT (Φ.iteration ε j).F (le_refl j) :=
+  isoWhiskerLeft (monotone_inclusion_lt_le_of_le (le_refl j)).functor (Φ.restrictionLEIterationIso ε j)
 
 end
+
+instance : (Φ.iterationFunctor ε J).WellOrderContinuous :=
+  Functor.WellOrderContinuous.mk' _ (fun j _ => by
+    apply (IsColimit.precomposeHomEquiv (Φ.restrictionLTIterationIso ε j).symm _).1
+    refine' IsColimit.ofIsoColimit ((Φ.iteration ε j).isColimit j (le_refl j))
+      (Cocones.ext (Iso.refl _) (fun ⟨k, hk⟩ => _))
+    dsimp [restrictionLTIterationIso, restrictionLEIterationIso, PrincipalSeg.ofElement, Subrel.relEmbedding,
+      iterationFunctorMap]
+    simp only [comp_id, ← NatTrans.comp_app_assoc, ← Iteration.natTrans_comp, Iso.inv_hom_id,
+      Iteration.natTrans_id, NatTrans.id_app, Iteration.trunc_F, id_comp])
 
 noncomputable def iterationFunctorCocone : Cocone (Φ.iterationFunctor ε J) := colimit.cocone _
 

@@ -131,8 +131,6 @@ lemma ιFunctorObj_naturality :
 
 end
 
-example : ℕ := 0
-
 variable (S : C) [∀ {X : C} (πX : X ⟶ S), HasColimitsOfShape (Discrete (FunctorObjIndex f πX)) C]
   [HasPushouts C]
 

@@ -6,6 +6,47 @@ universe u
 
 open CategoryTheory Category Limits
 
+namespace PrincipalSeg
+
+variable {α β : Type*} [PartialOrder α] [PartialOrder β] (h : PrincipalSeg (· < · : α → _) (· < · : β → _))
+
+noncomputable def orderIso : α ≃o { x | x < h.top } where
+  toEquiv := Equiv.ofBijective (fun a => ⟨h a, h.down.2 ⟨a, rfl⟩⟩) ⟨fun _ _ => by simp, fun ⟨y, hy⟩ => by
+    obtain ⟨x, rfl⟩ := h.down.1 hy
+    exact ⟨x, rfl⟩⟩
+  map_rel_iff' {x₁ x₂} := by
+    have : h x₁ < h x₂ ↔ x₁ < x₂ := h.toRelEmbedding.map_rel_iff'
+    dsimp
+    simp only [Subtype.mk_le_mk]
+    constructor
+    · intro h'
+      obtain h''|h'' := h'.lt_or_eq
+      · exact (this.1 h'').le
+      · simp only [EmbeddingLike.apply_eq_iff_eq] at h''
+        rw [h'']
+    · intro h'
+      obtain h''|rfl := h'.lt_or_eq
+      · exact (this.2 h'').le
+      · rfl
+
+@[simp]
+lemma orderIso_apply (a : α) : h.orderIso a = ⟨h a, h.down.2 ⟨a, rfl⟩⟩ := rfl
+
+end PrincipalSeg
+
+namespace OrderIso
+
+variable {α β : Type*} [Preorder α] [Preorder β] (e : α ≃o β)
+
+@[simps]
+def equivalence : α ≌ β where
+  functor := e.monotone.functor
+  inverse := e.symm.monotone.functor
+  unitIso := NatIso.ofComponents (fun x => eqToIso (by simp))
+  counitIso := NatIso.ofComponents (fun x => eqToIso (by simp))
+
+end OrderIso
+
 section
 
 variable {α : Type*} [LinearOrder α] [IsWellOrder α (· < ·)]
@@ -146,6 +187,12 @@ class WellOrderContinuous (F : J ⥤ D) : Prop where
   nonempty_isColimit {α : Type u} [LinearOrder α] (h : PrincipalSeg (· < · : α → α → Prop) (· < · : J → J → Prop))
       [IsWellOrderLimitElement h.top] :
     Nonempty (IsColimit (F.coconeOfFunctorToOver h.functorToOver))
+
+lemma WellOrderContinuous.mk' (F : J ⥤ D)
+    (hF : ∀ (j : J) [IsWellOrderLimitElement j],
+      IsColimit (F.coconeOfFunctorToOver (PrincipalSeg.ofElement (· < ·) j).functorToOver)) :
+    F.WellOrderContinuous where
+  nonempty_isColimit h _ := ⟨(hF h.top).whiskerEquivalence (h.orderIso.equivalence)⟩
 
 instance (F : ℕ ⥤ D) : F.WellOrderContinuous where
   nonempty_isColimit h := False.elim (Nat.not_isWellOrderLimitElement h.top)
