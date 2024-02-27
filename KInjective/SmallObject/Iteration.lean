@@ -597,7 +597,7 @@ lemma mkFunctorOfCoconeMap_comp (i₁ i₂ i₃ : J) (h₁ : i₁ ≤ i₂) (h�
         assoc, assoc, Iso.inv_hom_id_assoc, Cocone.w_assoc]
     · simp
 
-@[simps! obj]
+@[simps! obj map]
 def mkFunctorOfCocone : { i | i ≤ j } ⥤ C where
   obj := fun ⟨i, _⟩ => mkFunctorOfCoconeObj F c i
   map := @fun ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ φ => mkFunctorOfCoconeMap F c i₁ i₂ (leOfHom φ) h₂
@@ -610,7 +610,7 @@ end
 variable (j)
 variable [IsWellOrderLimitElement j] (iter : ∀ (i : J) (_ : i < j), Iteration ε i)
 
-@[simps obj]
+@[simps]
 noncomputable def mkOfLimitFunctor : {i | i < j} ⥤ C ⥤ C where
   obj := fun ⟨i, hi⟩ => (iter i hi).F.obj ⟨i, le_refl _⟩
   map := @fun ⟨i₁, h₁⟩ ⟨i₂, h₂⟩ φ => (eval ε (le_refl i₁)).map (iso (iter i₁ h₁) ((iter i₂ h₂).trunc (leOfHom φ : i₁ ≤ i₂))).hom ≫
@@ -636,15 +636,49 @@ noncomputable def mkOfLimit [HasColimit (mkOfLimitFunctor j iter)] :
     Iteration ε j where
   F := mkFunctorOfCocone (mkOfLimitFunctor j iter) (colimit.cocone _)
   isoZero := mkFunctorOfCoconeObjIso _ _ _ _ ≪≫ (iter ⊥ (IsWellOrderLimitElement.bot_lt j)).isoZero
-  isoSucc := sorry
-  mapSucc'_eq := sorry
+  isoSucc i hi := by
+    refine' mkFunctorOfCoconeObjIso _ _ _ (IsWellOrderLimitElement.wellOrderSucc_lt hi) ≪≫
+      (iter (wellOrderSucc i) _).isoSucc i (self_lt_wellOrderSucc hi) ≪≫
+      isoWhiskerRight (?_ ≪≫ (mkFunctorOfCoconeObjIso _ _ _ hi).symm) Φ
+    exact (eval ε (le_refl i)).mapIso (iso (iter i hi) ((iter (wellOrderSucc i) (IsWellOrderLimitElement.wellOrderSucc_lt hi)).trunc (self_le_wellOrderSucc i))).symm
+  mapSucc'_eq i hi := by
+    have hi' := (IsWellOrderLimitElement.wellOrderSucc_lt hi)
+    have hi'' := self_lt_wellOrderSucc hi
+    have h := (iter (wellOrderSucc i) hi').mapSucc_eq _ hi''
+    dsimp [mapSucc', mapSucc] at h ⊢
+    rw [mkFunctorOfCoconeMap_of_lt _ _ _ _ _ hi']
+    dsimp
+    simp only [assoc, whiskerRight_comp, h]
+    ext X
+    dsimp
+    erw [ε.naturality_assoc, ε.naturality_assoc]
   isColimit := sorry
 
 end Iteration
 
-variable (C J) in
-abbrev HasIterationOfShape := ∀ (j : J) [IsWellOrderLimitElement j], HasColimitsOfShape { i | i < j } C
+section
 
+variable (C J)
+
+class HasIterationOfShape : Prop where
+  hasColimitsOfShape_of_limit (j : J) [IsWellOrderLimitElement j] :
+    HasColimitsOfShape { i | i < j } C := by infer_instance
+  hasColimitsOfShape : HasColimitsOfShape J C := by infer_instance
+
+instance [HasColimitsOfSize.{u, u} C] : HasIterationOfShape C J where
+
+variable [HasIterationOfShape C J]
+
+instance : HasColimitsOfShape J C := HasIterationOfShape.hasColimitsOfShape
+
+variable {C}
+
+instance hasColimitsOfShape_of_hasIterationOfShape (j : J) [IsWellOrderLimitElement j] :
+    HasColimitsOfShape { i | i < j } C := HasIterationOfShape.hasColimitsOfShape_of_limit _
+
+end
+
+variable (C J) in
 def nonempty_iteration [HasIterationOfShape C J] (j : J) : Nonempty (Iteration ε j) := by
   refine' WellFoundedLT.induction (C := fun i => Nonempty (Iteration ε i)) j (fun j hj => _)
   obtain rfl|⟨i, rfl, hi⟩|_ := eq_bot_or_eq_succ_or_isWellOrderLimitElement j
