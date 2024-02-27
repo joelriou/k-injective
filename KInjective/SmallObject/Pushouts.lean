@@ -12,133 +12,148 @@ namespace SmallObject
 variable {C : Type u} [Category.{v} C] {I : Type w}
   {A B : I → C} (f : ∀ i, A i ⟶ B i)
 
--- TODO: relative version in the category `Over (_ : C)`.
 section
 
-variable (X Y Z : C) (φ : X ⟶ Y) (ψ : Y ⟶ Z)
+variable {S : C} {X Y Z : C} (πX : X ⟶ S) (πY : Y ⟶ S) (πZ : Z ⟶ S)
+  (φ : X ⟶ Y) (hφ : φ ≫ πY = πX) (ψ : Y ⟶ Z) (hψ : ψ ≫ πZ = πY)
 
-variable (A B)
+structure FunctorObjIndex where
+  i : I
+  t : A i ⟶ X
+  b : B i ⟶ S
+  w : f i ≫ b = t ≫ πX
 
-def functorObjIndex := Sigma (fun i => A i ⟶ X)
+attribute [reassoc (attr := simp)] FunctorObjIndex.w
 
-variable [HasColimitsOfShape (Discrete (functorObjIndex A X)) C]
-  [HasColimitsOfShape (Discrete (functorObjIndex A Y)) C]
-  [HasColimitsOfShape (Discrete (functorObjIndex A Z)) C]
+variable [HasColimitsOfShape (Discrete (FunctorObjIndex f πX)) C]
+  [HasColimitsOfShape (Discrete (FunctorObjIndex f πY)) C]
+  [HasColimitsOfShape (Discrete (FunctorObjIndex f πZ)) C]
 
-abbrev functorObjSrcFamily (x : functorObjIndex A X) : C := A x.1
+abbrev functorObjSrcFamily (x : FunctorObjIndex f πX) : C := A x.i
 
-abbrev functorObjTgtFamily (x : functorObjIndex A X) : C := B x.1
+abbrev functorObjTgtFamily (x : FunctorObjIndex f πX) : C := B x.i
 
-noncomputable abbrev functorObjTop : ∐ (functorObjSrcFamily A X) ⟶ X :=
-  Limits.Sigma.desc (fun x => x.2)
+noncomputable abbrev functorObjTop :
+    ∐ (functorObjSrcFamily f πX) ⟶ X :=
+  Limits.Sigma.desc (fun x => x.t)
 
-variable {A B}
-
-abbrev functorObjLeftFamily (x : functorObjIndex A X) :
-    functorObjSrcFamily A X x ⟶ functorObjTgtFamily A B X x := f _
+abbrev functorObjLeftFamily (x : FunctorObjIndex f πX) :
+    functorObjSrcFamily f πX x ⟶ functorObjTgtFamily f πX x := f x.i
 
 noncomputable abbrev functorObjLeft :
-    ∐ (functorObjSrcFamily A X) ⟶ ∐ (functorObjTgtFamily A B X) :=
-  Limits.Sigma.map (functorObjLeftFamily f X)
+    ∐ (functorObjSrcFamily f πX) ⟶ ∐ (functorObjTgtFamily f πX) :=
+  Limits.Sigma.map (functorObjLeftFamily f πX)
 
-variable [HasPushout (functorObjTop A X) (functorObjLeft f X)]
-  [HasPushout (functorObjTop A Y) (functorObjLeft f Y)]
-  [HasPushout (functorObjTop A Z) (functorObjLeft f Z)]
+variable [HasPushout (functorObjTop f πX) (functorObjLeft f πX)]
+  [HasPushout (functorObjTop f πY) (functorObjLeft f πY)]
+  [HasPushout (functorObjTop f πZ) (functorObjLeft f πZ)]
 
 noncomputable abbrev functorObj : C :=
-  pushout (functorObjTop A X) (functorObjLeft f X)
+  pushout (functorObjTop f πX) (functorObjLeft f πX)
 
-variable {X Y}
+noncomputable abbrev ιFunctorObj : X ⟶ functorObj f πX := pushout.inl
 
-section
+noncomputable abbrev ρFunctorObj : ∐ (functorObjTgtFamily f πX) ⟶ functorObj f πX := pushout.inr
 
-variable (A)
+noncomputable abbrev π'FunctorObj : ∐ (functorObjTgtFamily f πX) ⟶ S := Sigma.desc (fun x => x.b)
+
+noncomputable def πFunctorObj : functorObj f πX ⟶ S :=
+  pushout.desc πX (π'FunctorObj f πX) (by ext; simp [π'FunctorObj])
+
+@[reassoc (attr := simp)]
+lemma ρFunctorObj_π : ρFunctorObj f πX ≫ πFunctorObj f πX = π'FunctorObj f πX := by
+  simp [πFunctorObj]
+
+@[reassoc (attr := simp)]
+lemma ιFunctorObj_πFunctorObj : ιFunctorObj f πX ≫ πFunctorObj f πX = πX := by
+  simp [ιFunctorObj, πFunctorObj]
 
 noncomputable def functorMapSrc :
-    ∐ (functorObjSrcFamily A X) ⟶ ∐ (functorObjSrcFamily A Y) :=
-  Sigma.map' (fun ⟨i, g⟩ => ⟨i, g ≫ φ⟩) (fun _ => 𝟙 _)
+    ∐ (functorObjSrcFamily f πX) ⟶ ∐ (functorObjSrcFamily f πY) :=
+  Sigma.map' (fun x => FunctorObjIndex.mk x.i (x.t ≫ φ) x.b (by simp [hφ])) (fun _ => 𝟙 _)
 
 @[reassoc]
-lemma ι_functorMapSrc (i : I) (g : A i ⟶ X) (g' : A i ⟶ Y) (fac : g ≫ φ = g') :
-    Sigma.ι _ ⟨i, g⟩ ≫ functorMapSrc A φ =
-      Sigma.ι (functorObjSrcFamily A Y) ⟨i, g'⟩ := by
+lemma ι_functorMapSrc (i : I) (t : A i ⟶ X) (b : B i ⟶ S) (w : f i ≫ b = t ≫ πX)
+    (t' : A i ⟶ Y) (fac : t ≫ φ = t') :
+    Sigma.ι _ (FunctorObjIndex.mk i t b w) ≫ functorMapSrc f πX πY φ hφ =
+      Sigma.ι (functorObjSrcFamily f πY) (FunctorObjIndex.mk i t' b (by rw [w, ← fac, assoc, hφ])) := by
   subst fac
   erw [Sigma.ι_comp_map', id_comp]
 
 @[reassoc (attr := simp)]
 lemma functorMapSrc_functorObjTop :
-    functorMapSrc A φ ≫ functorObjTop A Y = functorObjTop A X ≫ φ := by
-  ext ⟨i, f⟩
-  rw [ι_functorMapSrc_assoc A φ i f _ rfl]
-  simp
-
-end
-
-section
-
-variable (A B)
+    functorMapSrc f πX πY φ hφ ≫ functorObjTop f πY = functorObjTop f πX ≫ φ := by
+  ext ⟨i, t, b, w⟩
+  simp [ι_functorMapSrc_assoc f πX πY φ hφ i t b w _ rfl]
 
 noncomputable def functorMapTgt :
-    ∐ (functorObjTgtFamily A B X) ⟶ ∐ (functorObjTgtFamily A B Y) :=
-  Sigma.map' (fun ⟨i, g⟩ => ⟨i, g ≫ φ⟩) (fun _ => 𝟙 _)
+    ∐ (functorObjTgtFamily f πX) ⟶ ∐ (functorObjTgtFamily f πY) :=
+  Sigma.map' (fun x => FunctorObjIndex.mk x.i (x.t ≫ φ) x.b (by simp [hφ])) (fun _ => 𝟙 _)
 
 @[reassoc]
-lemma ι_functorMapTgt (i : I) (g : A i ⟶ X) (g' : A i ⟶ Y) (fac : g ≫ φ = g') :
-    Sigma.ι _ ⟨i, g⟩ ≫ functorMapTgt A B φ =
-      Sigma.ι (functorObjTgtFamily A B Y) ⟨i, g'⟩ := by
+lemma ι_functorMapTgt (i : I) (t : A i ⟶ X) (b : B i ⟶ S) (w : f i ≫ b = t ≫ πX)
+    (t' : A i ⟶ Y) (fac : t ≫ φ = t') :
+    Sigma.ι _ (FunctorObjIndex.mk i t b w) ≫ functorMapTgt f πX πY φ hφ =
+      Sigma.ι (functorObjTgtFamily f πY) (FunctorObjIndex.mk i t' b (by rw [w, ← fac, assoc, hφ])) := by
   subst fac
   erw [Sigma.ι_comp_map', id_comp]
 
-end
-
 lemma functorMap_comm :
-    functorObjLeft f X ≫ functorMapTgt A B φ = functorMapSrc A φ ≫ functorObjLeft f Y := by
-  ext ⟨i, g⟩
-  dsimp
-  simp only [ι_colimMap_assoc, Discrete.functor_obj, Discrete.natTrans_app,
-    ι_functorMapTgt A B φ i g _ rfl, ι_functorMapSrc_assoc A φ i g _ rfl,
-    ι_colimMap]
+    functorObjLeft f πX ≫ functorMapTgt f πX πY φ hφ =
+      functorMapSrc f πX πY φ hφ ≫ functorObjLeft f πY := by
+  ext ⟨i, t, b, w⟩
+  simp only [ι_colimMap_assoc, Discrete.natTrans_app, ι_colimMap,
+    ι_functorMapTgt f πX πY φ hφ i t b w _ rfl,
+    ι_functorMapSrc_assoc f πX πY φ hφ i t b w _ rfl]
 
-noncomputable abbrev functorMap : functorObj f X ⟶ functorObj f Y :=
-  pushout.map _ _ _ _ φ (functorMapTgt A B φ) (functorMapSrc A φ) (by simp)
-    (functorMap_comm f φ)
+noncomputable abbrev functorMap : functorObj f πX ⟶ functorObj f πY :=
+  pushout.map _ _ _ _ φ (functorMapTgt f πX πY φ hφ) (functorMapSrc f πX πY φ hφ) (by simp)
+    (functorMap_comm f πX πY φ hφ)
+
+@[reassoc (attr := simp)]
+lemma functorMap_π : functorMap f πX πY φ hφ ≫ πFunctorObj f πY = πFunctorObj f πX := by
+  ext ⟨i, t, b, w⟩
+  · simp [hφ]
+  · simp [ι_functorMapTgt_assoc f πX πY φ hφ i t b w _ rfl]
 
 variable (X) in
 @[simp]
-lemma functorMap_id : functorMap f (𝟙 X) = 𝟙 _ := by
-  ext ⟨i, g⟩
+lemma functorMap_id : functorMap f πX πX (𝟙 X) (by simp) = 𝟙 _ := by
+  ext ⟨i, t, b, w⟩
   · simp
-  · simp [ι_functorMapTgt_assoc A B (𝟙 X) i g g (by simp)]
+  · simp [ι_functorMapTgt_assoc f πX πX (𝟙 X) (by simp) i t b w t (by simp)]
 
-@[reassoc (attr := simp)]
-lemma functorMap_comp : functorMap f (φ ≫ ψ) = functorMap f φ ≫ functorMap f ψ := by
-  ext ⟨i, g⟩
-  · simp
-  · simp [ι_functorMapTgt_assoc A B φ i g _ rfl,
-      ι_functorMapTgt_assoc A B (φ ≫ ψ) i g _ rfl,
-      ι_functorMapTgt_assoc A B ψ i (g ≫ φ) (g ≫ φ ≫ ψ) (by simp)]
-
-variable (X) in
-noncomputable def ιFunctorObj : X ⟶ functorObj f X := pushout.inl
 
 @[reassoc (attr := simp)]
 lemma ιFunctorObj_naturality :
-    ιFunctorObj f X ≫ functorMap f φ = φ ≫ ιFunctorObj f Y := by
+    ιFunctorObj f πX ≫ functorMap f πX πY φ hφ = φ ≫ ιFunctorObj f πY := by
   simp [ιFunctorObj, functorMap]
 
 end
 
-variable [∀ (X : C), HasColimitsOfShape (Discrete (functorObjIndex A X)) C]
+example : ℕ := 0
+
+variable (S : C) [∀ {X : C} (πX : X ⟶ S), HasColimitsOfShape (Discrete (FunctorObjIndex f πX)) C]
   [HasPushouts C]
 
 @[simps!]
-noncomputable def functor : C ⥤ C where
-  obj X := functorObj f X
-  map φ := functorMap f φ
+noncomputable def functor : Over S ⥤ Over S where
+  obj w := Over.mk (πFunctorObj f w.hom)
+  map {w₁ w₂} φ := Over.homMk (functorMap f w₁.hom w₂.hom φ.left (Over.w φ))
+  map_id w := by ext; dsimp; simp
+  map_comp {w₁ w₂ w₃} φ φ' := by
+    ext1
+    dsimp
+    ext ⟨i, t, b, w⟩
+    · simp
+    · dsimp
+      simp [ι_functorMapTgt_assoc f w₁.hom w₂.hom φ.left (Over.w φ) i t b w _ rfl,
+        ι_functorMapTgt_assoc f w₁.hom w₃.hom (φ.left ≫ φ'.left) (Over.w (φ ≫ φ')) i t b w _ rfl,
+        ι_functorMapTgt_assoc f w₂.hom w₃.hom (φ'.left) (Over.w φ') i (t ≫ φ.left) b (by simp [w]) (t ≫ φ.left ≫ φ'.left) (by simp)]
 
 @[simps!]
-noncomputable def ε : 𝟭 C ⟶ functor f where
-  app X := ιFunctorObj f X
+noncomputable def ε : 𝟭 (Over S) ⟶ functor f S where
+  app w := Over.homMk (ιFunctorObj f w.hom)
 
 end SmallObject
 
