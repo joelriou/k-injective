@@ -1,5 +1,6 @@
 import Mathlib.CategoryTheory.Limits.Shapes.Pullbacks
 import Mathlib.CategoryTheory.Limits.Shapes.Products
+import KInjective.SmallObject.Lifting
 
 universe w v u
 
@@ -171,6 +172,24 @@ lemma ε_extension {i : I} (b : B i ⟶ S) {Z : Over S} (t : Over.mk (f i ≫ b)
       ext
       exact ((FunctorObjIndex.mk i t.left b (Over.w t).symm).comm).symm⟩
 
+section
+
+variable {X : C} (πX : X ⟶ S)
+
+lemma functorObjLeft_mem_rlpWith_llpWith :
+    (MorphismProperty.ofHoms f).rlpWith.llpWith (functorObjLeft f πX) := by
+  intro Z T p hp
+  have pif := fun i => hp (f i) ⟨i⟩
+  dsimp [functorObjLeft]
+  infer_instance
+
+lemma ιFunctorObj_mem_rlpWith_llpWith  :
+    (MorphismProperty.ofHoms f).rlpWith.llpWith (ιFunctorObj f πX) := by
+  intro Z T p hp
+  have pif := functorObjLeft_mem_rlpWith_llpWith f πX p hp
+  infer_instance
+
+end
 
 end SmallObject
 

@@ -1,10 +1,27 @@
 import Mathlib.CategoryTheory.Comma.Over
 import Mathlib.CategoryTheory.MorphismProperty
+import Mathlib.CategoryTheory.Limits.FunctorCategory
 import Mathlib.Order.InitialSeg
 
 universe u
 
 open CategoryTheory Category Limits
+
+namespace CategoryTheory
+
+namespace MorphismProperty
+
+variable {C : Type*} [Category C] (W : MorphismProperty C)
+
+def over (S : C) : MorphismProperty (Over S) := fun _ _ f => W f.left
+
+@[simp]
+lemma mem_over_iff {S : C} {X Y : Over S} (f : X ⟶ Y) : W.over S f ↔ W f.left := by rfl
+
+end MorphismProperty
+
+end CategoryTheory
+
 
 namespace PrincipalSeg
 
@@ -29,7 +46,6 @@ noncomputable def orderIso : α ≃o { x | x < h.top } where
       · exact (this.2 h'').le
       · rfl
 
-@[simp]
 lemma orderIso_apply (a : α) : h.orderIso a = ⟨h a, h.down.2 ⟨a, rfl⟩⟩ := rfl
 
 end PrincipalSeg
@@ -165,8 +181,8 @@ namespace CategoryTheory
 
 namespace Functor
 
-variable {J : Type u} {C' C D : Type*} [LinearOrder J] [IsWellOrder J (· < ·)]
-  [Category C'] [Category C] [Category D]
+variable {J : Type u} {C' C D E : Type*} [LinearOrder J] [IsWellOrder J (· < ·)]
+  [Category C'] [Category C] [Category D] [Category E]
 
 section
 
@@ -202,6 +218,19 @@ noncomputable def isColimitOfWellOrderContinuous (F : J ⥤ D) [WellOrderContinu
   (IsColimit (F.coconeOfFunctorToOver h.functorToOver)) :=
     Nonempty.some (WellOrderContinuous.nonempty_isColimit h)
 
+variable (J) in
+class PreservesWellOrderContinuousOfShape (G : D ⥤ E) where
+  condition (j : J) [IsWellOrderLimitElement j] : PreservesColimitsOfShape { i | i < j} G
+
+instance (F : J ⥤ D) [WellOrderContinuous F] (G : D ⥤ E)
+    [h : PreservesWellOrderContinuousOfShape J G] :
+    WellOrderContinuous (F ⋙ G) := WellOrderContinuous.mk' _ (fun j _ => by
+  have : IsWellOrderLimitElement (PrincipalSeg.ofElement (· < · ) j).top := by
+    dsimp
+    infer_instance
+  have := h.condition j
+  exact isColimitOfPreserves G (F.isColimitOfWellOrderContinuous (PrincipalSeg.ofElement (· < ·) j)))
+
 end Functor
 
 namespace MorphismProperty
@@ -214,9 +243,42 @@ class IsStableUnderTransfiniteCompositionOfShape (β : Type*) [LinearOrder β] [
 
 abbrev IsStableUnderInfiniteComposition := W.IsStableUnderTransfiniteCompositionOfShape ℕ
 
+lemma mem_of_transfinite_composition (β : Type*) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β]
+    (F : β ⥤ C) [F.WellOrderContinuous] (hF : ∀ (a : β) (_ : a < wellOrderSucc a), W (F.map (homOfLE (self_le_wellOrderSucc a))))
+    (c : Cocone F) (hc : IsColimit c) [W.IsStableUnderTransfiniteCompositionOfShape β] : W (c.ι.app ⊥) :=
+  IsStableUnderTransfiniteCompositionOfShape.condition F hF c hc
+
 class IsStableUnderTransfiniteComposition extends W.IsMultiplicative : Prop where
   isStableUnderTransfiniteCompositionOfShape (β : Type u) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β] :
     W.IsStableUnderTransfiniteCompositionOfShape β := by infer_instance
+
+section
+
+variable (D : Type*) [Category D]
+
+def functor : MorphismProperty (D ⥤ C) := fun _ _ τ => ∀ X, W (τ.app X)
+
+variable {D}
+
+@[simp]
+lemma mem_functor_iff {F₁ F₂ : D ⥤ C} (τ : F₁ ⟶ F₂) : W.functor D τ ↔ ∀ X, W (τ.app X) := by rfl
+
+variable (β : Type*) [LinearOrder β] [IsWellOrder β (· < ·)] [OrderBot β]
+
+instance [W.IsStableUnderTransfiniteCompositionOfShape β] [HasColimitsOfShape β C]
+    [∀ X, Functor.PreservesWellOrderContinuousOfShape β ((evaluation D C).obj X)] :
+    (W.functor D).IsStableUnderTransfiniteCompositionOfShape β where
+  condition F _ hF _ hc X := W.mem_of_transfinite_composition β (F ⋙ (evaluation D C).obj X)
+    (fun j hj => hF j hj X) _ (isColimitOfPreserves ((evaluation D C).obj X) hc)
+
+instance isStableUnderTransfiniteCompositionOfShape_over [W.IsStableUnderTransfiniteCompositionOfShape β] (S : C)
+    [Functor.PreservesWellOrderContinuousOfShape β (Over.forget S)]
+    [PreservesColimitsOfShape β (Over.forget S)] :
+    (W.over S).IsStableUnderTransfiniteCompositionOfShape β where
+  condition F _ hF _ hc := W.mem_of_transfinite_composition β (F ⋙ Over.forget _) hF _
+    (isColimitOfPreserves (Over.forget _) hc)
+
+end
 
 end MorphismProperty
 

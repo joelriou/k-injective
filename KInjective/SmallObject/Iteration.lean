@@ -747,6 +747,12 @@ variable [HasIterationOfShape C J]
 
 instance : HasColimitsOfShape J C := HasIterationOfShape.hasColimitsOfShape
 
+noncomputable instance {D : Type*} [Category D] (X : D) :
+    Functor.PreservesWellOrderContinuousOfShape J ((evaluation D C).obj X) where
+  condition j _ := by
+    have : HasColimitsOfShape { i | i < j} C := HasIterationOfShape.hasColimitsOfShape_of_limit _
+    infer_instance
+
 variable {C}
 
 instance hasColimitsOfShape_of_hasIterationOfShape (j : J) [IsWellOrderLimitElement j] :
@@ -867,6 +873,22 @@ noncomputable def iterationFunctorCocone : Cocone (Φ.iterationFunctor ε J) := 
 noncomputable def isColimitIterationFunctorCocone : IsColimit (Φ.iterationFunctorCocone ε J) := colimit.isColimit _
 
 noncomputable def iter : C ⥤ C := (Φ.iterationFunctorCocone ε J).pt
+
+section
+
+variable (W : MorphismProperty C) (hW : W.RespectsIso) [W.IsStableUnderTransfiniteCompositionOfShape J]
+  (hε : ∀ (X : C), W (ε.app X))
+
+lemma iterationFunctorCocone_ι_app_app_mem : W (((Φ.iterationFunctorCocone ε J).ι.app ⊥).app X) := by
+  refine (W.functor C).mem_of_transfinite_composition J (iterationFunctor Φ ε J) (fun j hj => ?_) _
+    (Φ.isColimitIterationFunctorCocone ε J) X
+  rw [iterationFunctor_map_succ _ _ _ hj]
+  intro X
+  simp only [iterationFunctor_obj, NatTrans.comp_app, comp_obj, whiskerLeft_app]
+  rw [hW.cancel_right_isIso]
+  exact hε ((iterationFunctorObj Φ ε j).obj X)
+
+end
 
 end
 

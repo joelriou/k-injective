@@ -18,6 +18,30 @@ namespace CategoryTheory
 
 open Category
 
+namespace Over
+
+instance {C : Type*} [Category C] {S : C} {X Y : Over S} (f : X ⟶ Y) [IsIso f] : IsIso f.left :=
+  (inferInstance : IsIso ((Over.forget _ ).map f))
+
+end Over
+
+namespace MorphismProperty
+
+variable {C : Type*} [Category C] (W : MorphismProperty C)
+
+namespace RespectsIso
+
+variable {W}
+variable (hW : W.RespectsIso)
+
+lemma over (S : C) : (W.over S).RespectsIso where
+  left e f hf := hW.left ((Over.forget _).mapIso e) ((Over.forget _).map f) hf
+  right e f hf := hW.right ((Over.forget _).mapIso e) ((Over.forget _).map f) hf
+
+end RespectsIso
+
+end MorphismProperty
+
 namespace Limits
 
 section
@@ -88,24 +112,19 @@ open Limits
 
 variable {C : Type*} [Category.{v} C] {I : Type w} {A B : I → C} (f : ∀ i, A i ⟶ B i)
 
-namespace MorphismProperty
-
-inductive ofHoms : MorphismProperty C
-  | mk (i : I) : ofHoms (f i)
-
-lemma ofHoms.mk_mem (i : I) : (ofHoms f) (f i) := ofHoms.mk i
-
-end MorphismProperty
-
 namespace SmallObject
 
 variable (J : Type*) [LinearOrder J] [IsWellOrder J (· < ·)] [OrderBot J] [IsWellOrderLimit J]
   [∀ i, PreservesColimitsOfShape J (coyoneda.obj (Opposite.op (A i)))]
-  [∀ {X Y: C} (πX : X ⟶ Y), HasColimitsOfShape (Discrete (FunctorObjIndex f πX)) C] [HasPushouts C]
+  [∀ {X Y : C} (πX : X ⟶ Y), HasColimitsOfShape (Discrete (FunctorObjIndex f πX)) C] [HasPushouts C]
   [Functor.HasIterationOfShape C J]
 
 instance (Y : C) : Functor.HasIterationOfShape (Over Y) J where
   hasColimitsOfShape_of_limit j := inferInstance
+
+noncomputable instance (Y : C) : Functor.PreservesWellOrderContinuousOfShape J (Over.forget Y) where
+  condition j _ := by
+    infer_instance
 
 variable {X : C} (Y : C)
 
@@ -189,8 +208,17 @@ lemma π_mem_rlpWith : (MorphismProperty.ofHoms f).rlpWith (π f J g) := by
   infer_instance
 
 lemma ι_mem_rlpWith_llpWith :
-    (MorphismProperty.ofHoms f).rlpWith.llpWith (ι f J g) :=
-  sorry
+    (MorphismProperty.ofHoms f).rlpWith.llpWith (ι f J g) := by
+  apply MorphismProperty.comp_mem
+  · intro Z T p _
+    infer_instance
+  · change (MorphismProperty.ofHoms f).rlpWith.llpWith.over Y (((iterCocone f J Y).ι.app ⊥).app (Over.mk g))
+    apply Functor.iterationFunctorCocone_ι_app_app_mem
+    · apply MorphismProperty.RespectsIso.over
+      apply MorphismProperty.llpWith_respectsIso
+    · intro X
+      simp only [Functor.id_obj, MorphismProperty.mem_over_iff, functor_obj_left, ε_app_left]
+      apply ιFunctorObj_mem_rlpWith_llpWith
 
 lemma mem_rlpWith_llpWith_iff :
     (MorphismProperty.ofHoms f).rlpWith.llpWith g ↔

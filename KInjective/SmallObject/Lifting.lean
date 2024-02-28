@@ -1,13 +1,64 @@
 import KInjective.SmallObject.Induction
 import KInjective.SmallObject.StableUnderRetract
 
+universe w v u
+
 namespace CategoryTheory
 
 open Category Limits
 
-variable {C : Type*} [Category C]
+variable {C : Type u} [Category.{v} C]
+
+namespace IsPushout
+
+variable {X Y Z T : C} (t : X ⟶ Y) (l : X ⟶ Z) (r : Y ⟶ T) (b : Z ⟶ T)
+  (h : IsPushout t l r b)
+
+lemma hasLiftingProperty {A B : C} (p : A ⟶ B) [HasLiftingProperty l p] :
+    HasLiftingProperty r p where
+  sq_hasLift {f g} sq := by
+    have sq' : CommSq (t ≫ f) l p (b ≫ g) :=
+      ⟨by rw [assoc, sq.w, h.w_assoc]⟩
+    exact ⟨⟨{
+      l := PushoutCocone.IsColimit.desc h.isColimit f sq'.lift (by simp)
+      fac_left := PushoutCocone.IsColimit.inl_desc h.isColimit _ _ _
+      fac_right := by
+        apply PushoutCocone.IsColimit.hom_ext h.isColimit
+        · rw [PushoutCocone.IsColimit.inl_desc_assoc, cocone_inl, sq.w]
+        · rw [PushoutCocone.IsColimit.inr_desc_assoc, cocone_inr, sq'.fac_right] }⟩⟩
+
+end IsPushout
+
+instance hasLiftingProperty_pushout_inl {X Y Z : C} (f : X ⟶ Y) (g : X ⟶ Z) [HasPushout f g] {A B : C} (p : A ⟶ B)
+    [HasLiftingProperty g p] : HasLiftingProperty (pushout.inl : Y ⟶ pushout f g) p :=
+  (IsPushout.of_hasPushout f g).hasLiftingProperty p
+
+instance hasLiftingProperty_pushout_inr {X Y Z : C} (f : X ⟶ Y) (g : X ⟶ Z) [HasPushout f g] {A B : C} (p : A ⟶ B)
+    [HasLiftingProperty f p] : HasLiftingProperty (pushout.inr : Z ⟶ pushout f g) p :=
+  (IsPushout.of_hasPushout f g).flip.hasLiftingProperty p
+
+instance hasLiftingProperty_limits_map {I : Type*} {A B : I → C} (f : ∀ i, A i ⟶ B i)
+    [HasCoproduct A] [HasCoproduct B] {X Y : C} (p : X ⟶ Y) [∀ i, HasLiftingProperty (f i) p] :
+    HasLiftingProperty (Limits.Sigma.map f) p where
+  sq_hasLift {t b} sq := by
+    have sq' : ∀ i, CommSq (Sigma.ι A i ≫ t) (f i) p (Sigma.ι B i ≫ b) := fun i => ⟨by simp [sq.w]⟩
+    exact ⟨⟨{
+        l := Sigma.desc (fun i => (sq' i).lift)
+        fac_left := by aesop_cat
+        fac_right := by aesop_cat }⟩⟩
 
 namespace MorphismProperty
+
+section
+
+variable {I : Type w} {A B : I → C} (f : ∀ i, A i ⟶ B i)
+
+inductive ofHoms : MorphismProperty C
+  | mk (i : I) : ofHoms (f i)
+
+lemma ofHoms.mk_mem (i : I) : (ofHoms f) (f i) := ofHoms.mk i
+
+end
 
 variable (W : MorphismProperty C)
 
@@ -50,6 +101,22 @@ lemma llpWith_isStableUnderRetract : W.llpWith.IsStableUnderRetract where
 
 lemma rlpWith_isStableUnderRetract : W.rlpWith.IsStableUnderRetract where
   condition f g i p hip hg _ _ ι hι := hasRightLiftingProperty_of_retract f g i p hip ι (hg ι hι)
+
+lemma llpWith_respectsIso : W.llpWith.RespectsIso where
+  left e f hf X Y p hp := by
+    have := hf p hp
+    infer_instance
+  right e f hf X Y p hp := by
+    have := hf p hp
+    infer_instance
+
+lemma rlpWith_respectsIso : W.rlpWith.RespectsIso where
+  left e f hf A B i hi := by
+    have := hf i hi
+    infer_instance
+  right e f hf A B i hi := by
+    have := hf i hi
+    infer_instance
 
 namespace IsStableUnderTransfiniteCompositionOfShapeLlpWith
 
