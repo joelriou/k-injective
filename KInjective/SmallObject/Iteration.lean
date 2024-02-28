@@ -864,7 +864,7 @@ instance : (Φ.iterationFunctor ε J).WellOrderContinuous :=
 
 noncomputable def iterationFunctorCocone : Cocone (Φ.iterationFunctor ε J) := colimit.cocone _
 
-noncomputable def isColimitIterationFunctorCocone := IsColimit (Φ.iterationFunctorCocone ε J)
+noncomputable def isColimitIterationFunctorCocone : IsColimit (Φ.iterationFunctorCocone ε J) := colimit.isColimit _
 
 noncomputable def iter : C ⥤ C := (Φ.iterationFunctorCocone ε J).pt
 

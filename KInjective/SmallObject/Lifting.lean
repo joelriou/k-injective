@@ -1,4 +1,5 @@
 import KInjective.SmallObject.Induction
+import KInjective.SmallObject.StableUnderRetract
 
 namespace CategoryTheory
 
@@ -43,6 +44,12 @@ lemma le_rlpWith_llpWith : W ≤ W.rlpWith.llpWith := by
   intro A B i hi X Y p hp
   have := hp i hi
   infer_instance
+
+lemma llpWith_isStableUnderRetract : W.llpWith.IsStableUnderRetract where
+  condition f g i p hip hg _ _ π hπ := hasLeftLiftingProperty_of_retract f g i p hip π (hg π hπ)
+
+lemma rlpWith_isStableUnderRetract : W.rlpWith.IsStableUnderRetract where
+  condition f g i p hip hg _ _ ι hι := hasRightLiftingProperty_of_retract f g i p hip ι (hg ι hι)
 
 namespace IsStableUnderTransfiniteCompositionOfShapeLlpWith
 

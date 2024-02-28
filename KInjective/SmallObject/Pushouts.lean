@@ -55,6 +55,15 @@ noncomputable abbrev ιFunctorObj : X ⟶ functorObj f πX := pushout.inl
 
 noncomputable abbrev ρFunctorObj : ∐ (functorObjTgtFamily f πX) ⟶ functorObj f πX := pushout.inr
 
+@[reassoc]
+lemma functorObj_comm :
+    functorObjTop f πX ≫ ιFunctorObj f πX = functorObjLeft f πX ≫ ρFunctorObj f πX := pushout.condition
+
+@[reassoc (attr := simp)]
+lemma FunctorObjIndex.comm (x : FunctorObjIndex f πX) :
+    f x.i ≫ Sigma.ι (functorObjTgtFamily f πX) x ≫ ρFunctorObj f πX = x.t ≫ ιFunctorObj f πX := by
+  simpa using (Sigma.ι (functorObjSrcFamily f πX) x ≫= functorObj_comm f πX).symm
+
 noncomputable abbrev π'FunctorObj : ∐ (functorObjTgtFamily f πX) ⟶ S := Sigma.desc (fun x => x.b)
 
 noncomputable def πFunctorObj : functorObj f πX ⟶ S :=
@@ -152,6 +161,16 @@ noncomputable def functor : Over S ⥤ Over S where
 @[simps!]
 noncomputable def ε : 𝟭 (Over S) ⟶ functor f S where
   app w := Over.homMk (ιFunctorObj f w.hom)
+
+variable {S}
+
+lemma ε_extension {i : I} (b : B i ⟶ S) {Z : Over S} (t : Over.mk (f i ≫ b) ⟶ Z) :
+    ∃ (l : Over.mk b ⟶ (functor f S).obj Z), t ≫ (ε f S).app Z = (by exact Over.homMk (f i)) ≫ l :=
+  ⟨Over.homMk (Sigma.ι (functorObjTgtFamily f Z.hom)
+    (FunctorObjIndex.mk i t.left b (Over.w t).symm) ≫ ρFunctorObj f Z.hom), by
+      ext
+      exact ((FunctorObjIndex.mk i t.left b (Over.w t).symm).comm).symm⟩
+
 
 end SmallObject
 
