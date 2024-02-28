@@ -217,7 +217,8 @@ lemma ι_mem_rlpWith_llpWith :
     · apply MorphismProperty.RespectsIso.over
       apply MorphismProperty.llpWith_respectsIso
     · intro X
-      simp only [Functor.id_obj, MorphismProperty.mem_over_iff, functor_obj_left, ε_app_left]
+      simp only [Functor.id_obj, functor_obj, ε_app, MorphismProperty.mem_over_iff, Over.mk_left,
+        Over.homMk_left]
       apply ιFunctorObj_mem_rlpWith_llpWith
 
 lemma mem_rlpWith_llpWith_iff :
